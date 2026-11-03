@@ -69,13 +69,13 @@
         <option value="ios">ios · 仅 iOS</option>
       </select>
       <div class="two">
-        <div class="field"><label>最低版本（可空）</label><input id="minv" placeholder="如 0.7.0"></div>
-        <div class="field"><label>最高版本（可空）</label><input id="maxv" placeholder="如 0.9.9"></div>
+        <div class="field"><label>最低版本（留空=不限）</label><input id="minv" placeholder="如 0.7.0"></div>
+        <div class="field"><label>最高版本（留空=不限）</label><input id="maxv" placeholder="如 0.9.9"></div>
       </div>
       <div class="field"><label>品牌名单（可空，逗号分隔，不区分大小写）</label><input id="brands" placeholder="如 OnePlus,Xiaomi"></div>
       <div class="two">
-        <div class="field"><label>生效开始（可空）</label><input id="startAt" type="datetime-local"></div>
-        <div class="field"><label>生效结束（可空）</label><input id="endAt" type="datetime-local"></div>
+        <div class="field"><label>生效开始（留空 = 立即生效）</label><input id="startAt" type="datetime-local"></div>
+        <div class="field"><label>生效结束（留空 = 长期有效）</label><input id="endAt" type="datetime-local"></div>
       </div>
       <input id="action" placeholder="跳转链接（可空）">
       <div class="row"><button class="primary" onclick="create()">发布</button>
@@ -83,6 +83,7 @@
       <div class="hint" id="msg"></div>
       <div class="err" id="err"></div>
       <div class="hint" style="margin-top:6px">品牌与版本/时间只影响下发条件：品牌名单以 <code>[brands:...]</code> 标记追加在正文末尾，不新增数据库字段。</div>
+      <div class="hint" style="margin-top:6px">发布后：手机 App 开着的话 3 秒内就会弹；没开的话下次打开 App 或下一次心跳（约 1 分钟）后弹。每条公告在每台设备上只弹一次。</div>
     </div>
     <div class="card" id="listCard"><div class="hint">加载中…</div></div>
   </div>
@@ -156,6 +157,18 @@ function platformLabel(v){
   if(p==='all') return 'all';
   return p;
 }
+/* 公告现在到底会不会下发：这是最容易踩的坑——以前 start_at 留空会被后端当「未生效」直接吞掉 */
+function statusOf(a){
+  a = a || {};
+  if(!a.enabled) return {k:'off', t:'已停用 · 不下发'};
+  const now = Date.now();
+  const s = a.start_at ? new Date(a.start_at).getTime() : null;
+  const e = a.end_at ? new Date(a.end_at).getTime() : null;
+  if(s && !isNaN(s) && now < s) return {k:'wait', t:'未生效 · ' + fmtTime(a.start_at) + ' 起'};
+  if(e && !isNaN(e) && now > e) return {k:'over', t:'已过期 · ' + fmtTime(a.end_at) + ' 止'};
+  return {k:'live', t:'生效中 · 会下发'};
+}
+const STATUS_COLOR = {live:'#1a7f4b', wait:'#8a6d1f', over:'#6b7280', off:'#6b7280'};
 
 async function api(path,opt){
   const r=await fetch(SUPA+path,Object.assign({},opt,{headers:Object.assign({apikey:ANON,Authorization:'Bearer '+token,'Content-Type':'application/json'},(opt&&opt.headers)||{})}));
@@ -178,11 +191,13 @@ async function load(){
     if(!rows||!rows.length){ card.innerHTML='<div class="hint">还没有公告</div>'; return; }
     card.innerHTML = rows.map(function(a){
       const p=parseBrands(a&&a.body);
+      const st=statusOf(a||{});
       const tags=['平台：'+platformLabel(a&&a.platform),'版本：'+verRange(a||{})];
       if(p.list.length) tags.push('品牌：'+p.list.join('、'));
       tags.push('生效：'+whenRange(a||{}));
       return `<div class="item"><b>${esc(a&&a.title)}</b>
-      <div class="m">#${esc(a&&a.id)} · ${esc((a&&a.severity)||'info')} · ${a&&a.enabled?'启用':'停用'} · ${esc(fmtTime(a&&a.created_at)||'—')}</div>
+      <div class="m"><span style="color:${STATUS_COLOR[st.k]||'#6b7280'};font-weight:600">${esc(st.t)}</span>
+        · #${esc(a&&a.id)} · ${esc((a&&a.severity)||'info')} · ${esc(fmtTime(a&&a.created_at)||'—')}</div>
       <div class="m">${tags.map(t=>`<span class="tag${t.indexOf('品牌：')===0?' brand':''}">${esc(t)}</span>`).join('')}</div>
       <div class="m">${esc(p.text.slice(0,80))||'（无正文）'}</div>
       <div class="row"><button onclick="toggle(${esc(a&&a.id)},${a&&a.enabled?'false':'true'})">${a&&a.enabled?'停用':'启用'}</button>
