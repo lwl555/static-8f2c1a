@@ -103,6 +103,7 @@
       <a class="btn sm" href="rules.html" style="text-decoration:none;color:inherit">判定规则</a>
       <button class="btn sm" id="btnCfg">连接设置</button>
       <button class="btn sm primary" id="btnReload">刷新</button>
+      <button class="btn sm" style="background:#a33b2c;color:#fff;border-color:#a33b2c" onclick="globalStop()">全局急停</button>
     </div>
   </header>
 
@@ -320,6 +321,8 @@ function renderDevices(){
       <td data-label="操作" style="white-space:nowrap">
         <button class="btn sm" onclick="showLogs('${esc(d.id)}')">流水</button>
         <button class="btn sm" onclick="toggleService('${esc(d.id)}', ${d.service_on ? 'false' : 'true'})">${d.service_on ? '关云服务' : '开通云服务'}</button>
+        <button class="btn sm" onclick="toggleStop('${esc(d.id)}', ${d.emergency_stop ? 'false' : 'true'})">${d.emergency_stop ? '恢复' : '急停'}</button>
+        <button class="btn sm" onclick="togglePause('${esc(d.id)}', ${d.ai_paused ? 'false' : 'true'})">${d.ai_paused ? '恢复AI' : '暂停AI'}</button>
         <button class="btn sm" onclick="pushUpdate('${esc(d.id)}')">推送更新</button>
         <button class="btn sm" onclick="toggleDev('${esc(d.id)}','${d.status==='active'?'suspended':'active'}')">${d.status==='active'?'封禁':'解封'}</button>
       </td>
@@ -360,6 +363,29 @@ async function toggleService(id, on){
     toast(on ? '已开通云服务' : '已关闭云服务');
     loadDevices();
   }catch(e){ toast('操作失败：' + e.message); }
+}
+
+async function toggleStop(id, stop){
+  try{
+    await api('dm_devices?id=eq.' + encodeURIComponent(id), {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({emergency_stop: !!stop})});
+    toast(stop ? '已急停，约 2 分钟内生效' : '已恢复');
+    loadDevices();
+  }catch(e){ toast('操作失败：' + e.message); }
+}
+async function togglePause(id, paused){
+  try{
+    await api('dm_devices?id=eq.' + encodeURIComponent(id), {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({ai_paused: !!paused})});
+    toast(paused ? '已暂停该设备 AI' : '已恢复该设备 AI');
+    loadDevices();
+  }catch(e){ toast('操作失败：' + e.message); }
+}
+async function globalStop(){
+  if(!confirm('确定全局急停？所有设备的自动回复都会在 2 分钟内停下。')) return;
+  try{
+    await api('dm_devices?id=neq.__none__', {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({emergency_stop: true})});
+    toast('全局急停已下发');
+    loadDevices();
+  }catch(e){ toast('失败：' + e.message); }
 }
 
 async function pushUpdate(id){
