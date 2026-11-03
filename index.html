@@ -289,6 +289,7 @@ function renderDevices(){
       <td class="mono">${fmtIdle(d)}</td>
       <td style="white-space:nowrap">
         <button class="btn sm" onclick="showLogs('${esc(d.id)}')">流水</button>
+        <button class="btn sm" onclick="toggleService('${esc(d.id)}', ${d.service_on ? 'false' : 'true'})">${d.service_on ? '关云服务' : '开通云服务'}</button>
         <button class="btn sm" onclick="pushUpdate('${esc(d.id)}')">推送更新</button>
         <button class="btn sm" onclick="toggleDev('${esc(d.id)}','${d.status==='active'?'suspended':'active'}')">${d.status==='active'?'封禁':'解封'}</button>
       </td>
@@ -318,6 +319,17 @@ async function showLogs(id){
     $('logBox').innerHTML = '<div class="empty">读不到日志：' + esc(e.message) +
       '<br><br>日志表只允许写入，读取需要 service_role 密钥。点右上「连接设置」换一下。</div>';
   }
+}
+
+async function toggleService(id, on){
+  try{
+    await api('dm_devices?id=eq.' + encodeURIComponent(id), {
+      method:'PATCH', headers:{'Prefer':'return=minimal'},
+      body: JSON.stringify({ service_on: !!on })
+    });
+    toast(on ? '已开通云服务' : '已关闭云服务');
+    loadDevices();
+  }catch(e){ toast('操作失败：' + e.message); }
 }
 
 async function pushUpdate(id){
