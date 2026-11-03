@@ -278,7 +278,7 @@ function renderDevices(){
       : '—';
     return `<tr>
       <td><b>${esc(d.alias || '未命名')}</b>
-        <div class="mono">${esc(d.id||'')} · v${esc((d.app_version||'?').replace(/^v/,''))}</div></td>
+        <div class="mono">${esc(d.id||'')} · v${esc((d.app_version||'?').replace(/^v/,''))}${d.latest_version ? ' → ' + esc(d.latest_version) : ''}</div></td>
       <td><span class="badge ${cls}">${label}</span>
         <div class="mono">偏移 ${dist} / 限 ${d.allowed_radius_m||'—'} m</div></td>
       <td class="loc">${loc}</td>
@@ -289,6 +289,7 @@ function renderDevices(){
       <td class="mono">${fmtIdle(d)}</td>
       <td style="white-space:nowrap">
         <button class="btn sm" onclick="showLogs('${esc(d.id)}')">流水</button>
+        <button class="btn sm" onclick="pushUpdate('${esc(d.id)}')">推送更新</button>
         <button class="btn sm" onclick="toggleDev('${esc(d.id)}','${d.status==='active'?'suspended':'active'}')">${d.status==='active'?'封禁':'解封'}</button>
       </td>
     </tr>`;
@@ -319,8 +320,23 @@ async function showLogs(id){
   }
 }
 
-async function toggleDev(id, status){
-  if(!confirm(status==='suspended' ? '停用这台设备？它会静默停止工作。' : '恢复这台设备？')) return;
+async function pushUpdate(id){
+  const v = prompt('推送哪个版本？例如 0.7.2');
+  if(!v) return;
+  const url = prompt('APK 下载地址（https://…）');
+  if(!url) return;
+  try{
+    await api('dm_devices?id=eq.' + encodeURIComponent(id), {
+      method:'PATCH',
+      headers:{'Prefer':'return=minimal'},
+      body: JSON.stringify({ latest_version: v.trim(), update_url: url.trim() })
+    });
+    toast('已推送 v' + v.trim());
+    loadDevices();
+  }catch(e){ toast('推送失败：' + e.message); }
+}
+
+async function toggleDev(id, status){  if(!confirm(status==='suspended' ? '停用这台设备？它会静默停止工作。' : '恢复这台设备？')) return;
   try{
     await api('dm_devices?id=eq.' + encodeURIComponent(id), {
       method:'PATCH',
