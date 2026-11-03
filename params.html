@@ -168,11 +168,17 @@ async function save(){
   msg.textContent='保存中…';
   try{
     const val = collect();
+    // v0.8.0：保留数据库里已有、但本页未列出的旧参数，避免一次保存把它们冲掉
+    let merged = val;
+    try{
+      const rows = await api('/rest/v1/dm_settings?key=eq.params&select=value');
+      if(rows.length){ merged = Object.assign({}, JSON.parse(rows[0].value), val); }
+    }catch(e){ /* 读不出来就用本页值，不阻断保存 */ }
     const r = await api('/rest/v1/dm_settings?key=eq.params&select=key', {method:'GET'});
     if(r.length){
-      await api('/rest/v1/dm_settings?key=eq.params', {method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({value:JSON.stringify(val)})});
+      await api('/rest/v1/dm_settings?key=eq.params', {method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({value:JSON.stringify(merged)})});
     }else{
-      await api('/rest/v1/dm_settings', {method:'POST', headers:{Prefer:'return=minimal'}, body:JSON.stringify({key:'params', value:JSON.stringify(val)})});
+      await api('/rest/v1/dm_settings', {method:'POST', headers:{Prefer:'return=minimal'}, body:JSON.stringify({key:'params', value:JSON.stringify(merged)})});
     }
     msg.textContent='已保存，App 下一轮心跳生效';
   }catch(e){ msg.textContent=''; err.textContent='保存失败：' + e.message; }
