@@ -63,6 +63,23 @@
     padding:10px 20px;border-radius:5px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:99}
   .toast.show{opacity:1}
   @media(max-width:720px){.wrap{padding:20px 14px 60px} th:nth-child(3),td:nth-child(3){display:none}}
+@media (max-width: 760px){
+  body{padding:12px}
+  .card{padding:12px}
+  table{display:block;border:none;background:none}
+  thead{display:none}
+  tbody{display:block}
+  tr{display:block;border:1px solid #e5e7eb;border-radius:12px;margin:10px 0;padding:8px 12px;background:#fff}
+  td{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;border:none;padding:6px 0;width:auto;text-align:right}
+  td::before{content:attr(data-label);color:#6b7280;font-size:12px;flex:0 0 58px;padding-top:3px;text-align:left}
+  td[data-label="设备"]{display:block;text-align:left;padding-bottom:8px;border-bottom:1px dashed #e5e7eb;margin-bottom:4px}
+  td[data-label="设备"]::before{display:none}
+  td[data-label="操作"]{display:flex;flex-wrap:wrap;gap:8px;padding-top:10px}
+  td[data-label="操作"]::before{display:none}
+  td[data-label="操作"] .btn.sm{flex:1 1 44%}
+  .loc{word-break:break-all}
+  .logrow{flex-wrap:wrap}
+}
 </style>
 </head>
 <body>
@@ -278,17 +295,17 @@ function renderDevices(){
       ? `<a target="_blank" rel="noopener" href="https://uri.amap.com/marker?position=${d.lng},${d.lat}&name=${encodeURIComponent(d.alias||d.id)}">${Number(d.lat).toFixed(4)}, ${Number(d.lng).toFixed(4)}</a>`
       : '—';
     return `<tr>
-      <td><b>${esc(d.alias || '未命名')}</b>
+      <td data-label="设备"><b>${esc(d.alias || '未命名')}</b>
         <div class="mono">${esc(d.id||'')} · v${esc((d.app_version||'?').replace(/^v/,''))}${d.latest_version ? ' → ' + esc(d.latest_version) : ''}</div></td>
-      <td><span class="badge ${cls}">${label}</span>
+      <td data-label="状态"><span class="badge ${cls}">${label}</span>
         <div class="mono">偏移 ${dist} / 限 ${d.allowed_radius_m||'—'} m</div></td>
-      <td class="loc">${loc}</td>
-      <td><span class="badge off" style="margin-right:6px">${mode}</span>${act}
+      <td data-label="位置" class="loc">${loc}</td>
+      <td data-label="在干什么"><span class="badge off" style="margin-right:6px">${mode}</span>${act}
         <div class="mono">${env.join(' · ')}</div></td>
-      <td class="num">${d.today_reply||0}</td>
-      <td class="num">${d.total_reply||0}</td>
-      <td class="mono">${fmtIdle(d)}</td>
-      <td style="white-space:nowrap">
+      <td data-label="今日" class="num">${d.today_reply||0}</td>
+      <td data-label="累计" class="num">${d.total_reply||0}</td>
+      <td data-label="最后心跳" class="mono">${fmtIdle(d)}</td>
+      <td data-label="操作" style="white-space:nowrap">
         <button class="btn sm" onclick="showLogs('${esc(d.id)}')">流水</button>
         <button class="btn sm" onclick="toggleService('${esc(d.id)}', ${d.service_on ? 'false' : 'true'})">${d.service_on ? '关云服务' : '开通云服务'}</button>
         <button class="btn sm" onclick="pushUpdate('${esc(d.id)}')">推送更新</button>
