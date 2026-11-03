@@ -79,14 +79,14 @@
   </header>
 
   <div class="panel" id="setupPanel" style="display:none">
-    <div class="panel-head"><h2>连接设置</h2></div>
+    <div class="panel-head"><h2>管理员登录</h2></div>
     <div class="setup">
-      <label>Supabase 项目地址</label>
-      <input id="inUrl" placeholder="https://xxxx.supabase.co">
-      <label>密钥（必须 service_role，仅存在于管理员浏览器）</label>
-      <input id="inKey" placeholder="eyJhbGciOi... 或 sb_secret_...">
-      <div class="hint">用 Supabase → Project Settings → API 里的 <b>service_role</b>（不要用 anon：anon 已收紧为只能写心跳，读不到设备列表）。密钥只存在这台设备的浏览器里，不会上传。</div>
-      <button class="btn primary" id="btnSave">保存并连接</button>
+      <label>账号</label>
+      <input id="inUser" placeholder="管理员邮箱">
+      <label>密码</label>
+      <input id="inPass" type="password" placeholder="密码">
+      <div class="hint" id="loginHint">账号和密码都正确才能进入后台。</div>
+      <button class="btn primary" id="btnSave">登录</button>
     </div>
   </div>
 
@@ -94,6 +94,7 @@
     <div class="stat"><div class="k">设备总数</div><div class="v" id="sTotal">—</div></div>
     <div class="stat"><div class="k">正在用</div><div class="v" id="sWorking">—</div></div>
     <div class="stat"><div class="k">待机</div><div class="v" id="sIdle">—</div></div>
+    <div class="stat"><div class="k">异常</div><div class="v" id="sAlert">—</div></div>
     <div class="stat"><div class="k">离线 / 已停用</div><div class="v" id="sOff">—</div></div>
     <div class="stat"><div class="k">今日回复合计</div><div class="v" id="sToday">—</div></div>
   </div>
@@ -119,14 +120,16 @@
 
   <footer style="margin-top:8px;color:var(--sub);font-size:11.5px;line-height:1.8">
     私信助手 · 设备管理台　开发者 linyu<br>
-    此页面仅供管理员使用，请勿转发链接；密钥只保存在管理员自己的浏览器里。
+    账号登录后才能查看；请勿转发链接。
   </footer>
 </div>
 <div class="toast" id="toast"></div>
 
 <script>
-const LS_URL = 'dm_admin_url', LS_KEY = 'dm_admin_key';
-let URL_ = '', KEY_ = '', devices = [];
+const SUPA = 'https://wcnssyiqitugqfmcbdhe.supabase.co';
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbnNzeWlxaXR1Z3FmbWNiZGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MDEyNzUsImV4cCI6MjA5ODk3NzI3NX0.9EfbEr7BQhZtbOwHJ3IrkOy16kcaxlmzuJuV0A2Z8Eg';
+const LS_TOKEN = 'dm_admin_token';
+let TOKEN = '', devices = [];
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -137,19 +140,37 @@ function toast(msg){
 }
 
 function loadCfg(){
-  URL_ = localStorage.getItem(LS_URL) || '';
-  KEY_ = localStorage.getItem(LS_KEY) || '';
-  // 后台地址预填好，管理员只需要贴 service_role 密钥
-  $('inUrl').value = URL_ || 'https://wcnssyiqitugqfmcbdhe.supabase.co';
-  $('inKey').value = KEY_;
-  if(!URL_ || !KEY_) $('setupPanel').style.display = 'block';
+  TOKEN = sessionStorage.getItem(LS_TOKEN) || '';
+  if(!TOKEN) $('setupPanel').style.display = 'block';
+}
+
+async function login(){
+  const email = $('inUser').value.trim();
+  const pass = $('inPass').value;
+  if(!email || !pass){ $('loginHint').textContent = '账号和密码都要填'; return; }
+  try{
+    const r = await fetch(SUPA + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const d = await r.json();
+    if(!r.ok || !d.access_token) throw new Error('账号或密码不正确');
+    TOKEN = d.access_token;
+    sessionStorage.setItem(LS_TOKEN, TOKEN);
+    $('setupPanel').style.display = 'none';
+    $('subline').textContent = '已登录 · 安全会话';
+    loadDevices();
+  }catch(e){
+    $('loginHint').textContent = '登录失败：' + (e.message || '账号或密码不正确');
+  }
 }
 
 async function api(path, opts={}){
-  const r = await fetch(URL_.replace(/\/$/,'') + '/rest/v1/' + path, {
+  const r = await fetch(SUPA + '/rest/v1/' + path, {
     ...opts,
     headers: {
-      'apikey': KEY_, 'Authorization': 'Bearer ' + KEY_,
+      'apikey': ANON, 'Authorization': 'Bearer ' + TOKEN,
       'Content-Type': 'application/json', ...(opts.headers||{})
     }
   });
@@ -159,27 +180,35 @@ async function api(path, opts={}){
 }
 
 async function loadDevices(){
-  if(!URL_ || !KEY_) return;
+  if(!TOKEN) return;
   try{
     const rows = await api('dm_devices?select=*&order=last_seen.desc');
     devices = rows || [];
     renderStats(); renderDevices();
-    $('subline').textContent = '已连接 · ' + URL_.replace(/^https?:\/\//,'');
+    $('subline').textContent = '已登录 · 实时数据';
     $('lastSync').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN');
   }catch(e){
-    $('devBox').innerHTML = '<div class="empty">读取失败：' + esc(e.message) + '<br><br>检查地址/密钥是否正确，表是否已建。</div>';
+    $('devBox').innerHTML = '<div class="empty">读取失败：' + esc(e.message) + '<br><br>登录可能过期了，刷新页面重新登录。</div>';
     $('subline').textContent = '连接异常';
   }
+}
+
+function isAlert(d){
+  const p = presence(d);
+  return d.status !== 'active' || p === 'offline' ||
+         (!!d.engine_on && (!d.accessibility_on || !d.listener_on));
 }
 
 function renderStats(){
   const working = devices.filter(d => isWorking(d));
   const off = devices.filter(d => presence(d) === 'offline' || d.status !== 'active');
   const idle = devices.filter(d => presence(d) === 'idle' || (presence(d)==='online' && !d.engine_on));
+  const alert = devices.filter(d => isAlert(d));
   const today = devices.reduce((a,d)=> a + (d.today_reply||0), 0);
   $('sTotal').textContent = devices.length;
   $('sWorking').textContent = working.length;
   $('sIdle').textContent = idle.length;
+  $('sAlert').textContent = alert.length;
   $('sOff').textContent = off.length;
   $('sToday').textContent = today;
 }
@@ -224,6 +253,8 @@ function stateOf(d){
   if(d.status === 'suspended') return ['warn', '手动停用'];
   const p = presence(d);
   if(p === 'offline') return ['off', '离线'];
+  if(d.engine_on && !d.accessibility_on) return ['bad', '无障碍被关'];
+  if(d.engine_on && !d.listener_on)      return ['warn','通知监听掉线'];
   if(!d.engine_on)    return ['off', 'App 在·总开关关'];
   if(p === 'idle')    return ['warn','待机'];
   return ['ok', '在用'];
@@ -239,11 +270,15 @@ function renderDevices(){
     const env = [];
     if(d.battery != null && d.battery >= 0) env.push(d.battery + '%');
     env.push(d.screen_on === false ? '息屏' : '亮屏');
+    const loc = (d.lat && d.lng)
+      ? `<a target="_blank" rel="noopener" href="https://uri.amap.com/marker?position=${d.lng},${d.lat}&name=${encodeURIComponent(d.alias||d.id)}">${Number(d.lat).toFixed(4)}, ${Number(d.lng).toFixed(4)}</a>`
+      : '—';
     return `<tr>
       <td><b>${esc(d.alias || '未命名')}</b>
         <div class="mono">${esc((d.id||'').slice(0,16))} · v${esc((d.app_version||'?').replace(/^v/,''))}</div></td>
       <td><span class="badge ${cls}">${label}</span>
         <div class="mono">偏移 ${dist} / 限 ${d.allowed_radius_m||'—'} m</div></td>
+      <td class="loc">${loc}</td>
       <td><span class="badge off" style="margin-right:6px">${mode}</span>${act}
         <div class="mono">${env.join(' · ')}</div></td>
       <td class="num">${d.today_reply||0}</td>
@@ -256,7 +291,7 @@ function renderDevices(){
     </tr>`;
   }).join('');
   $('devBox').innerHTML = `<table>
-    <thead><tr><th>设备</th><th>状态</th><th>在干什么</th><th>今日</th><th>累计</th><th>最后心跳</th><th></th></tr></thead>
+    <thead><tr><th>设备</th><th>状态</th><th>位置</th><th>在干什么</th><th>今日</th><th>累计</th><th>最后心跳</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
 
@@ -294,23 +329,18 @@ async function toggleDev(id, status){
   }catch(e){ toast('操作失败：' + e.message); }
 }
 
+$('btnCfg').textContent = '退出登录';
 $('btnCfg').onclick = () => {
-  const p = $('setupPanel');
-  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  sessionStorage.removeItem(LS_TOKEN);
+  location.reload();
 };
-$('btnSave').onclick = () => {
-  URL_ = $('inUrl').value.trim() || 'https://wcnssyiqitugqfmcbdhe.supabase.co';
-  KEY_ = $('inKey').value.trim();
-  localStorage.setItem(LS_URL, URL_); localStorage.setItem(LS_KEY, KEY_);
-  $('setupPanel').style.display = 'none';
-  loadDevices();
-};
+$('btnSave').onclick = login;
 $('btnReload').onclick = loadDevices;
 $('btnCloseLog').onclick = () => $('logPanel').style.display = 'none';
 
 loadCfg();
-loadDevices();
-setInterval(loadDevices, 60000);
+if(TOKEN) loadDevices();
+setInterval(() => { if(TOKEN) loadDevices(); }, 60000);
 // 每 20 秒重算一次「几分钟前 / 在用还是待机」，不用等下一次拉数据
 setInterval(() => { if(devices.length){ renderStats(); renderDevices(); } }, 20000);
 </script>
