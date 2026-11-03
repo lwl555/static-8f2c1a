@@ -114,7 +114,10 @@
 
   <div class="panel" id="logPanel" style="display:none">
     <div class="panel-head"><h2>动作流水 <span class="mono" id="logDev"></span></h2>
-      <button class="btn sm" id="btnCloseLog">收起</button></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn sm" id="btnLogRefresh">刷新</button>
+        <button class="btn sm" id="btnCloseLog">收起</button>
+      </div></div>
     <div class="logs" id="logBox"></div>
   </div>
 
@@ -275,7 +278,7 @@ function renderDevices(){
       : '—';
     return `<tr>
       <td><b>${esc(d.alias || '未命名')}</b>
-        <div class="mono">${esc((d.id||'').slice(0,16))} · v${esc((d.app_version||'?').replace(/^v/,''))}</div></td>
+        <div class="mono">${esc(d.id||'')} · v${esc((d.app_version||'?').replace(/^v/,''))}</div></td>
       <td><span class="badge ${cls}">${label}</span>
         <div class="mono">偏移 ${dist} / 限 ${d.allowed_radius_m||'—'} m</div></td>
       <td class="loc">${loc}</td>
@@ -286,7 +289,7 @@ function renderDevices(){
       <td class="mono">${fmtIdle(d)}</td>
       <td style="white-space:nowrap">
         <button class="btn sm" onclick="showLogs('${esc(d.id)}')">流水</button>
-        <button class="btn sm" onclick="toggleDev('${esc(d.id)}','${d.status==='active'?'suspended':'active'}')">${d.status==='active'?'停用':'恢复'}</button>
+        <button class="btn sm" onclick="toggleDev('${esc(d.id)}','${d.status==='active'?'suspended':'active'}')">${d.status==='active'?'封禁':'解封'}</button>
       </td>
     </tr>`;
   }).join('');
@@ -337,6 +340,7 @@ $('btnCfg').onclick = () => {
 $('btnSave').onclick = login;
 $('btnReload').onclick = loadDevices;
 $('btnCloseLog').onclick = () => $('logPanel').style.display = 'none';
+$('btnLogRefresh').onclick = () => showLogs($('logDev').textContent);
 
 loadCfg();
 if(TOKEN) loadDevices();
