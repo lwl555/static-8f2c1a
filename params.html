@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>参数中心 · 私信助手</title>
+<style>
+  :root{--ink:#111418;--sub:#6b7280;--line:#e5e7eb;--bg:#f7f8f9}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:900px;margin:0 auto;padding:20px 14px 70px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--sub);font-size:12.5px;margin-bottom:14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:14px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  button{border:1px solid var(--line);background:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font:inherit}
+  button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font:inherit;margin-bottom:6px}
+  .item{display:grid;grid-template-columns:1fr 190px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #f0f2f3}
+  .item .k{font-size:13px}
+  .item .k b{display:block;font-weight:600;font-size:13.5px}
+  .item .k small{color:var(--sub);font-size:11.5px}
+  .item input{text-align:right;margin:0}
+  .hint{color:var(--sub);font-size:12px}
+  .err{color:#a33b2c;font-size:12.5px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>参数中心</h1>
+  <div class="sub">保存后 App 下一轮心跳生效（约 2 分钟）。改错可点「恢复出厂默认」。</div>
+
+  <div class="card" id="loginCard">
+    <div style="font-weight:600;margin-bottom:8px">管理员登录</div>
+    <input id="email" value="admin@linyu.local" placeholder="管理员邮箱">
+    <input id="pass" type="password" placeholder="密码">
+    <div class="row"><button class="primary" onclick="login()">登录</button></div>
+    <div class="err" id="loginErr"></div>
+  </div>
+
+  <div class="card hidden" id="editCard">
+    <div id="list"></div>
+    <div class="row">
+      <button class="primary" onclick="save()">保存并下发</button>
+      <button onclick="restore()">恢复出厂默认</button>
+      <button onclick="load()">重新拉取</button>
+      <a href="index.html" style="margin-left:auto;color:var(--sub);font-size:12.5px;align-self:center">返回设备列表</a>
+    </div>
+    <div class="hint" id="msg"></div>
+    <div class="err" id="err"></div>
+  </div>
+</div>
+<script>
+const SUPA = 'https://console-8f2c1a.pages.dev/api/supa';
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbnNzeWlxaXR1Z3FmbWNiZGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MDEyNzUsImV4cCI6MjA5ODk3NzI3NX0.9EfbEr7BQhZtbOwHJ3IrkOy16kcaxlmzuJuV0A2Z8Eg';
+let token = sessionStorage.getItem('dm_token') || '';
+
+const PARAMS = [
+  ['scan.poll_interval_sec','主动检查间隔','秒，0=只靠通知',600],
+  ['scan.batch_limit','每轮最多处理','个会话，1-10',5],
+  ['scan.page_limit','每轮最多翻屏','屏',6],
+  ['scan.jitter_pct','间隔随机抖动','%，防机械行为',20],
+  ['judge.wait_minutes','等待后重判','分钟',30],
+  ['judge.max_waits','最多等待次数','次',3],
+  ['reply.temperature','模型温度','0-2',0.8],
+  ['reply.max_tokens','回复最大长度','token',300],
+  ['send.min_interval_sec','单会话最小间隔','秒',20],
+  ['send.jitter_sec','发送前随机延迟','秒',4],
+  ['freq.daily_limit','每日总量上限','条',120],
+  ['freq.hourly_limit','每小时上限','条',25],
+  ['freq.quiet_start','免打扰开始','小时',23],
+  ['freq.quiet_end','免打扰结束','小时',7],
+  ['freq.cooldown_min','单人冷却','分钟',180],
+  ['memory.short_turns','短期记忆保留','轮',24],
+  ['memory.summary_every','摘要触发条数','条',20],
+  ['memory.compress_pct','压缩阈值','%',70],
+  ['adapt.selector_version','选择器配置版本','整数',1]
+];
+
+function defaults(){ const o={}; PARAMS.forEach(p=>o[p[0]]=p[3]); return o; }
+
+async function login(){
+  const err = document.getElementById('loginErr'); err.textContent='';
+  try{
+    const r = await fetch(SUPA + '/auth/v1/token?grant_type=password', {method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value.trim(),password:document.getElementById('pass').value})});
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error_description || j.msg || '登录失败');
+    token = j.access_token; sessionStorage.setItem('dm_token', token);
+    showEdit();
+  }catch(e){ err.textContent = '登录失败：' + e.message; }
+}
+
+function showEdit(){
+  document.getElementById('loginCard').classList.add('hidden');
+  document.getElementById('editCard').classList.remove('hidden');
+  render(defaults());
+  load();
+}
+
+function render(vals){
+  document.getElementById('list').innerHTML = PARAMS.map(p => `
+    <div class="item"><div class="k"><b>${p[1]}</b><small>${p[0]} · ${p[2]}（默认 ${p[3]}）</small></div>
+    <input data-key="${p[0]}" value="${vals[p[0]] !== undefined ? vals[p[0]] : p[3]}"></div>`).join('');
+}
+
+function collect(){
+  const o = {};
+  document.querySelectorAll('#list input').forEach(inp => {
+    const k = inp.dataset.key; let v = inp.value.trim();
+    if(v === 'true' || v === 'false') v = (v === 'true');
+    else if(v !== '' && !isNaN(Number(v))) v = Number(v);
+    o[k] = v;
+  });
+  return o;
+}
+
+async function api(path, opt){
+  const r = await fetch(SUPA + path, Object.assign({}, opt, {headers:Object.assign({apikey:ANON,Authorization:'Bearer '+token,'Content-Type':'application/json'},(opt&&opt.headers)||{})}));
+  const t = await r.text();
+  if(!r.ok) throw new Error(t.slice(0,180));
+  return t ? JSON.parse(t) : [];
+}
+
+async function load(){
+  const msg=document.getElementById('msg'), err=document.getElementById('err'); err.textContent='';
+  try{
+    const rows = await api('/rest/v1/dm_settings?key=eq.params&select=value');
+    if(rows.length){ render(Object.assign(defaults(), JSON.parse(rows[0].value))); msg.textContent='已加载'; }
+    else msg.textContent='还没有保存过，显示的是默认值';
+  }catch(e){ err.textContent='读取失败：' + e.message; }
+}
+
+async function save(){
+  const msg=document.getElementById('msg'), err=document.getElementById('err'); err.textContent='';
+  msg.textContent='保存中…';
+  try{
+    const val = collect();
+    const r = await api('/rest/v1/dm_settings?key=eq.params&select=key', {method:'GET'});
+    if(r.length){
+      await api('/rest/v1/dm_settings?key=eq.params', {method:'PATCH', headers:{Prefer:'return=minimal'}, body:JSON.stringify({value:JSON.stringify(val)})});
+    }else{
+      await api('/rest/v1/dm_settings', {method:'POST', headers:{Prefer:'return=minimal'}, body:JSON.stringify({key:'params', value:JSON.stringify(val)})});
+    }
+    msg.textContent='已保存，App 下一轮心跳生效';
+  }catch(e){ msg.textContent=''; err.textContent='保存失败：' + e.message; }
+}
+
+function restore(){ render(defaults()); document.getElementById('msg').textContent='已填回默认值，点保存才会生效'; }
+
+if(token) showEdit();
+</script>
+</body>
+</html>
