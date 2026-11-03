@@ -24,6 +24,13 @@
   .hint{color:var(--sub);font-size:12px}
   .err{color:#a33b2c;font-size:12.5px}
   .hidden{display:none}
+  .field{margin-bottom:8px}
+  .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:3px}
+  .field input{margin-bottom:0}
+  .two{display:flex;gap:8px;flex-wrap:wrap}
+  .two>.field{flex:1 1 200px;min-width:180px}
+  .tag{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:0 8px;margin-right:6px;font-size:11.5px;color:var(--sub);background:#fafbfb}
+  .tag.brand{color:#31506e;border-color:#cfe0ee;background:#f2f8fd}
 </style>
 </head>
 <body>
@@ -49,12 +56,26 @@
         <option value="important">important · 弹一次</option>
         <option value="critical">critical · 强制（谨慎）</option>
       </select>
-      <input id="minv" placeholder="最低版本（可空，如 0.7.0）">
+      <select id="platform">
+        <option value="android" selected>android · 仅安卓</option>
+        <option value="all">all · 全平台</option>
+        <option value="ios">ios · 仅 iOS</option>
+      </select>
+      <div class="two">
+        <div class="field"><label>最低版本（可空）</label><input id="minv" placeholder="如 0.7.0"></div>
+        <div class="field"><label>最高版本（可空）</label><input id="maxv" placeholder="如 0.9.9"></div>
+      </div>
+      <div class="field"><label>品牌名单（可空，逗号分隔，不区分大小写）</label><input id="brands" placeholder="如 OnePlus,Xiaomi"></div>
+      <div class="two">
+        <div class="field"><label>生效开始（可空）</label><input id="startAt" type="datetime-local"></div>
+        <div class="field"><label>生效结束（可空）</label><input id="endAt" type="datetime-local"></div>
+      </div>
       <input id="action" placeholder="跳转链接（可空）">
       <div class="row"><button class="primary" onclick="create()">发布</button>
       <a href="index.html" style="margin-left:auto;color:var(--sub);font-size:12.5px;align-self:center">返回设备列表</a></div>
       <div class="hint" id="msg"></div>
       <div class="err" id="err"></div>
+      <div class="hint" style="margin-top:6px">品牌与版本/时间只影响下发条件：品牌名单以 <code>[brands:...]</code> 标记追加在正文末尾，不新增数据库字段。</div>
     </div>
     <div class="card" id="listCard"><div class="hint">加载中…</div></div>
   </div>
@@ -63,6 +84,65 @@
 const SUPA='https://console-8f2c1a.pages.dev/api/supa';
 const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbnNzeWlxaXR1Z3FmbWNiZGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MDEyNzUsImV4cCI6MjA5ODk3NzI3NX0.9EfbEr7BQhZtbOwHJ3IrkOy16kcaxlmzuJuV0A2Z8Eg';
 let token=sessionStorage.getItem('dm_token')||'';
+
+const BRAND_RE=/\[brands:([^\]]*)\]\s*$/i;
+function val(id){ const el=document.getElementById(id); return el?String(el.value==null?'':el.value):''; }
+function txt(id){ return val(id).trim(); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+/* 正文末尾的品牌标记：解析出来展示，写库时不新增字段 */
+function parseBrands(body){
+  const s=String(body==null?'':body);
+  const m=s.match(BRAND_RE);
+  if(!m) return {text:s, list:[]};
+  const list=String(m[1]||'').split(/[,，]/).map(x=>x.trim()).filter(Boolean);
+  return {text:s.slice(0,m.index).replace(/\s+$/,''), list};
+}
+function stripBrandMarker(s){ return String(s==null?'':s).replace(/\[brands:[^\]]*\]\s*$/i,'').replace(/\s+$/,''); }
+function brandList(raw){
+  const seen={}, out=[];
+  String(raw==null?'':raw).split(/[,，]/).forEach(function(x){
+    const k=x.replace(/[\[\]]/g,'').trim();
+    if(!k) return;
+    const key=k.toLowerCase();
+    if(seen[key]) return;
+    seen[key]=1; out.push(k);
+  });
+  return out;
+}
+/* datetime-local -> timestamptz（UTC ISO），空/非法一律 null */
+function toIso(v){
+  const s=String(v==null?'':v).trim();
+  if(!s) return null;
+  const d=new Date(s);
+  return isNaN(d.getTime())?null:d.toISOString();
+}
+function fmtTime(v){
+  const s=String(v==null?'':v).trim();
+  if(!s) return '';
+  const d=new Date(s);
+  return isNaN(d.getTime())?s:d.toLocaleString('zh-CN');
+}
+function verRange(a){
+  const lo=String((a&&a.min_version)||'').trim(), hi=String((a&&a.max_version)||'').trim();
+  if(lo&&hi) return lo+' ~ '+hi;
+  if(lo) return '≥ '+lo;
+  if(hi) return '≤ '+hi;
+  return '全版本';
+}
+function whenRange(a){
+  const s=fmtTime(a&&a.start_at), e=fmtTime(a&&a.end_at);
+  if(!s&&!e) return '不限时间';
+  if(s&&e) return s+' ~ '+e;
+  return s? s+' 起生效' : e+' 前有效';
+}
+function platformLabel(v){
+  const p=String(v==null?'':v).trim().toLowerCase();
+  if(!p) return '—';
+  if(p==='android') return 'android';
+  if(p==='ios') return 'ios';
+  if(p==='all') return 'all';
+  return p;
+}
 
 async function api(path,opt){
   const r=await fetch(SUPA+path,Object.assign({},opt,{headers:Object.assign({apikey:ANON,Authorization:'Bearer '+token,'Content-Type':'application/json'},(opt&&opt.headers)||{})}));
@@ -82,25 +162,46 @@ async function load(){
   const card=document.getElementById('listCard');
   try{
     const rows=await api('/rest/v1/dm_announcements?select=*&order=id.desc&limit=50');
-    card.innerHTML = rows.length ? rows.map(a=>`<div class="item"><b>${esc(a.title)}</b>
-      <div class="m">#${a.id} · ${a.severity} · ${a.enabled?'启用':'停用'} · ${a.min_version||'全版本'} · ${new Date(a.created_at).toLocaleString('zh-CN')}</div>
-      <div class="m">${esc((a.body||'').slice(0,80))}</div>
-      <div class="row"><button onclick="toggle(${a.id},${!a.enabled})">${a.enabled?'停用':'启用'}</button>
-      <button onclick="del(${a.id})">删除</button></div></div>`).join('') : '<div class="hint">还没有公告</div>';
+    if(!rows||!rows.length){ card.innerHTML='<div class="hint">还没有公告</div>'; return; }
+    card.innerHTML = rows.map(function(a){
+      const p=parseBrands(a&&a.body);
+      const tags=['平台：'+platformLabel(a&&a.platform),'版本：'+verRange(a||{})];
+      if(p.list.length) tags.push('品牌：'+p.list.join('、'));
+      tags.push('生效：'+whenRange(a||{}));
+      return `<div class="item"><b>${esc(a&&a.title)}</b>
+      <div class="m">#${esc(a&&a.id)} · ${esc((a&&a.severity)||'info')} · ${a&&a.enabled?'启用':'停用'} · ${esc(fmtTime(a&&a.created_at)||'—')}</div>
+      <div class="m">${tags.map(t=>`<span class="tag${t.indexOf('品牌：')===0?' brand':''}">${esc(t)}</span>`).join('')}</div>
+      <div class="m">${esc(p.text.slice(0,80))||'（无正文）'}</div>
+      <div class="row"><button onclick="toggle(${esc(a&&a.id)},${a&&a.enabled?'false':'true'})">${a&&a.enabled?'停用':'启用'}</button>
+      <button onclick="del(${esc(a&&a.id)})">删除</button></div></div>`;
+    }).join('');
   }catch(e){ card.innerHTML='<div class="err">读取失败：'+esc(e.message)+'</div>'; }
 }
-function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 async function create(){
   const msg=document.getElementById('msg'),err=document.getElementById('err'); err.textContent='';
-  const title=document.getElementById('title').value.trim();
+  const title=txt('title');
   if(!title){ err.textContent='标题不能空'; return; }
+  const startAt=toIso(val('startAt')), endAt=toIso(val('endAt'));
+  if(startAt&&endAt&&new Date(endAt).getTime()<=new Date(startAt).getTime()){ err.textContent='结束时间必须晚于开始时间'; return; }
+  const brands=brandList(val('brands'));
+  const bodyRaw=stripBrandMarker(val('body'));
+  const body=brands.length ? (bodyRaw?bodyRaw+'\n':'')+'[brands:'+brands.join(',')+']' : bodyRaw;
+  const platform=txt('platform')||'android';
   msg.textContent='发布中…';
   try{
     await api('/rest/v1/dm_announcements',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({
-      title, body:document.getElementById('body').value, severity:document.getElementById('severity').value,
-      min_version:document.getElementById('minv').value.trim(), action_url:document.getElementById('action').value.trim(), enabled:true, once:true
+      title:title, body:body, severity:txt('severity')||'info',
+      platform:platform,
+      min_version:txt('minv'), max_version:txt('maxv'),
+      start_at:startAt, end_at:endAt,
+      action_url:txt('action'), enabled:true, once:true
     })});
-    msg.textContent='已发布'; document.getElementById('title').value=''; document.getElementById('body').value='';
+    msg.textContent='已发布';
+    ['title','body','minv','maxv','brands','startAt','endAt','action'].forEach(function(id){
+      const el=document.getElementById(id); if(el) el.value='';
+    });
+    document.getElementById('severity').value='info';
+    document.getElementById('platform').value='android';
     load();
   }catch(e){ msg.textContent=''; err.textContent='失败：'+e.message; }
 }
