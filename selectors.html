@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>选择器 · 私信助手</title>
+<style>
+  :root{--ink:#111418;--sub:#6b7280;--line:#e5e7eb;--bg:#f7f8f9}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:900px;margin:0 auto;padding:20px 14px 70px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--sub);font-size:12.5px;margin-bottom:14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:14px}
+  textarea{width:100%;min-height:320px;font:12.5px/1.5 ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:6px;padding:10px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  button{border:1px solid var(--line);background:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font:inherit}
+  button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font:inherit;margin-bottom:8px}
+  .hint{color:var(--sub);font-size:12px}
+  .err{color:#a33b2c;font-size:12.5px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>选择器配置</h1>
+  <div class="sub">抖音改版时改这里，App 下一轮心跳生效，不用发版。留空或删掉某个字段 = 用内置默认。</div>
+
+  <div class="card" id="loginCard">
+    <div style="font-weight:600;margin-bottom:8px">管理员登录</div>
+    <input id="email" value="admin@linyu.local" placeholder="管理员邮箱">
+    <input id="pass" type="password" placeholder="密码">
+    <div class="row"><button class="primary" onclick="login()">登录</button></div>
+    <div class="err" id="loginErr"></div>
+  </div>
+
+  <div class="card hidden" id="editCard">
+    <textarea id="sel" spellcheck="false"></textarea>
+    <div class="row">
+      <button class="primary" onclick="save()">保存并下发</button>
+      <button onclick="check()">只校验 JSON</button>
+      <button onclick="load()">重新拉取</button>
+      <a href="index.html" style="margin-left:auto;color:var(--sub);font-size:12.5px;align-self:center">返回设备列表</a>
+    </div>
+    <div class="hint" id="msg"></div>
+    <div class="err" id="err"></div>
+    <div class="hint" style="margin-top:10px">
+      字段：input_ids（输入框 id 片段）、send_ids（发送按钮 id）、send_desc（发送按钮文案）、row_class（会话行类名）、row_min_width_ratio（行宽占比）、placeholders（输入框占位文案）
+    </div>
+  </div>
+</div>
+<script>
+const SUPA='https://console-8f2c1a.pages.dev/api/supa';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbnNzeWlxaXR1Z3FmbWNiZGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MDEyNzUsImV4cCI6MjA5ODk3NzI3NX0.9EfbEr7BQhZtbOwHJ3IrkOy16kcaxlmzuJuV0A2Z8Eg';
+let token=sessionStorage.getItem('dm_token')||'';
+
+async function api(path,opt){
+  const r=await fetch(SUPA+path,Object.assign({},opt,{headers:Object.assign({apikey:ANON,Authorization:'Bearer '+token,'Content-Type':'application/json'},(opt&&opt.headers)||{})}));
+  const t=await r.text(); if(!r.ok) throw new Error(t.slice(0,180));
+  return t?JSON.parse(t):[];
+}
+async function login(){
+  const err=document.getElementById('loginErr'); err.textContent='';
+  try{
+    const r=await fetch(SUPA+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value.trim(),password:document.getElementById('pass').value})});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error_description||j.msg||'登录失败');
+    token=j.access_token; sessionStorage.setItem('dm_token',token); show();
+  }catch(e){ err.textContent='登录失败：'+e.message; }
+}
+function show(){ document.getElementById('loginCard').classList.add('hidden'); document.getElementById('editCard').classList.remove('hidden'); load(); }
+async function load(){
+  const msg=document.getElementById('msg'),err=document.getElementById('err'); err.textContent='';
+  try{
+    const rows=await api('/rest/v1/dm_settings?key=eq.selectors&select=value');
+    const val = rows.length ? rows[0].value : '{}';
+    document.getElementById('sel').value = JSON.stringify(JSON.parse(val), null, 2);
+    msg.textContent='已加载';
+  }catch(e){ err.textContent='读取失败：'+e.message; }
+}
+function check(){
+  const msg=document.getElementById('msg'),err=document.getElementById('err'); err.textContent='';
+  try{ JSON.parse(document.getElementById('sel').value); msg.textContent='JSON 合法'; }
+  catch(e){ err.textContent='JSON 错误：'+e.message; }
+}
+async function save(){
+  const msg=document.getElementById('msg'),err=document.getElementById('err'); err.textContent='';
+  let val;
+  try{ val=JSON.parse(document.getElementById('sel').value); }
+  catch(e){ err.textContent='JSON 错误：'+e.message; return; }
+  msg.textContent='保存中…';
+  try{
+    const rows=await api('/rest/v1/dm_settings?key=eq.selectors&select=key');
+    if(rows.length){
+      await api('/rest/v1/dm_settings?key=eq.selectors',{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify({value:JSON.stringify(val)})});
+    }else{
+      await api('/rest/v1/dm_settings',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({key:'selectors',value:JSON.stringify(val)})});
+    }
+    msg.textContent='已保存，App 下一轮心跳生效';
+  }catch(e){ msg.textContent=''; err.textContent='保存失败：'+e.message; }
+}
+if(token) show();
+</script>
+</body>
+</html>
