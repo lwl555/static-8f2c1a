@@ -114,7 +114,7 @@
     <div class="panel-head"><h2>管理员登录</h2></div>
     <div class="setup">
       <label>账号</label>
-      <input id="inUser" placeholder="管理员邮箱">
+      <input id="inUser" value="18882632073" placeholder="管理员账号（手机号）">
       <label>密码</label>
       <input id="inPass" type="password" placeholder="密码">
       <div class="hint" id="loginHint">账号和密码都正确才能进入后台。</div>
@@ -166,6 +166,12 @@
 <div class="toast" id="toast"></div>
 
 <script>
+/* v0.8.0：账号支持直接填手机号，自动补内部域名，兼容填完整邮箱 */
+function normAccount(v){
+  v = (v || '').trim();
+  return (v && v.indexOf('@') < 0) ? v + '@linyu.local' : v;
+}
+
 // 走 Cloudflare Pages 的代理：国内直连 supabase.co 经常 Failed to fetch
 const SUPA = 'https://console-8f2c1a.pages.dev/api/supa';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbnNzeWlxaXR1Z3FmbWNiZGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MDEyNzUsImV4cCI6MjA5ODk3NzI3NX0.9EfbEr7BQhZtbOwHJ3IrkOy16kcaxlmzuJuV0A2Z8Eg';
@@ -186,7 +192,7 @@ function loadCfg(){
 }
 
 async function login(){
-  const email = $('inUser').value.trim();
+  const email = normAccount($('inUser').value.trim());
   const pass = $('inPass').value;
   if(!email || !pass){ $('loginHint').textContent = '账号和密码都要填'; return; }
   try{

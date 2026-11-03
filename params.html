@@ -30,11 +30,19 @@
 <body>
 <div class="wrap">
   <h1>参数中心</h1>
-  <div class="sub">保存后 App 下一轮心跳生效（约 2 分钟）。改错可点「恢复出厂默认」。</div>
+  <div class="sub">保存后 App 下一轮心跳生效（约 2 分钟）。改错可点「恢复出厂默认」。<br>
+    「回复范围」这一组控制黑白名单、群消息、陌生人、黑户识别；App 里若勾了「以本机为准」，后台下发会被忽略。</div>
+  <div class="sub" style="margin-top:6px">导航：
+    <a href="index.html">设备台</a> ·
+    <a href="params.html">参数中心</a> ·
+    <a href="rules.html">判定规则</a> ·
+    <a href="selectors.html">选择器</a> ·
+    <a href="announcements.html">公告</a>
+  </div>
 
   <div class="card" id="loginCard">
     <div style="font-weight:600;margin-bottom:8px">管理员登录</div>
-    <input id="email" value="admin@linyu.local" placeholder="管理员邮箱">
+    <input id="email" value="18882632073" placeholder="管理员账号（手机号）">
     <input id="pass" type="password" placeholder="密码">
     <div class="row"><button class="primary" onclick="login()">登录</button></div>
     <div class="err" id="loginErr"></div>
@@ -53,6 +61,12 @@
   </div>
 </div>
 <script>
+/* v0.8.0：账号支持直接填手机号，自动补内部域名，兼容填完整邮箱 */
+function normAccount(v){
+  v = (v || '').trim();
+  return (v && v.indexOf('@') < 0) ? v + '@linyu.local' : v;
+}
+
 const SUPA = 'https://console-8f2c1a.pages.dev/api/supa';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbnNzeWlxaXR1Z3FmbWNiZGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MDEyNzUsImV4cCI6MjA5ODk3NzI3NX0.9EfbEr7BQhZtbOwHJ3IrkOy16kcaxlmzuJuV0A2Z8Eg';
 let token = sessionStorage.getItem('dm_token') || '';
@@ -76,15 +90,32 @@ const PARAMS = [
   ['memory.short_turns','短期记忆保留','轮',24],
   ['memory.summary_every','摘要触发条数','条',20],
   ['memory.compress_pct','压缩阈值','%',70],
-  ['adapt.selector_version','选择器配置版本','整数',1]
+  ['adapt.selector_version','选择器配置版本','整数',1],
+
+  // ---- v0.8.0 回复范围 / 过滤（后台下发，App 高级设置里也能改）----
+  ['filter.list_mode','名单模式','off / blacklist / whitelist','off'],
+  ['filter.blacklist','黑名单昵称','逗号分隔，模糊匹配',''],
+  ['filter.whitelist','白名单昵称','逗号分隔，模糊匹配',''],
+  ['filter.reply_groups','回复群消息','true / false',false],
+  ['filter.reply_other_messages','回复互动与系统消息','true / false',false],
+  ['filter.reply_strangers','回复陌生人','true / false',true],
+  ['filter.expand_stranger_list','扫描陌生人折叠区','true / false',false],
+  ['filter.black_user_action','黑户命中动作','skip / handoff / mark','skip'],
+  ['filter.black_user_words','黑户特征词','逗号分隔','刷单,兼职,代运营,加微信送,贷款,刷流水,日结,免费领'],
+  ['filter.contact_guard','联系方式转人工','true / false',true]
 ];
+
+/* 只有数值型的参数才转数字/布尔；filter.* 的字符串值保持原样，
+   否则 'off' 会被当成数字或被误转，下发到 App 就变成无效配置。 */
+const NUMERIC_KEYS = new Set(PARAMS.filter(p => typeof p[3] === 'number').map(p => p[0]));
+const BOOLISH_KEYS = new Set(['filter.reply_groups','filter.reply_other_messages','filter.reply_strangers','filter.expand_stranger_list','filter.contact_guard']);
 
 function defaults(){ const o={}; PARAMS.forEach(p=>o[p[0]]=p[3]); return o; }
 
 async function login(){
   const err = document.getElementById('loginErr'); err.textContent='';
   try{
-    const r = await fetch(SUPA + '/auth/v1/token?grant_type=password', {method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value.trim(),password:document.getElementById('pass').value})});
+    const r = await fetch(SUPA + '/auth/v1/token?grant_type=password', {method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({email:normAccount(document.getElementById('email').value.trim()),password:document.getElementById('pass').value})});
     const j = await r.json();
     if(!r.ok) throw new Error(j.error_description || j.msg || '登录失败');
     token = j.access_token; sessionStorage.setItem('dm_token', token);
@@ -109,8 +140,8 @@ function collect(){
   const o = {};
   document.querySelectorAll('#list input').forEach(inp => {
     const k = inp.dataset.key; let v = inp.value.trim();
-    if(v === 'true' || v === 'false') v = (v === 'true');
-    else if(v !== '' && !isNaN(Number(v))) v = Number(v);
+    if(BOOLISH_KEYS.has(k)) v = (v === 'true' || v === '1' || v === 'on');
+    else if(NUMERIC_KEYS.has(k) && v !== '' && !isNaN(Number(v))) v = Number(v);
     o[k] = v;
   });
   return o;

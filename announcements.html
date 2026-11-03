@@ -37,10 +37,17 @@
 <div class="wrap">
   <h1>公告</h1>
   <div class="sub">App 心跳拉取，回到前台弹一次（按 id 记已读）。停用后不再下发。</div>
+  <div class="sub" style="margin-top:6px">导航：
+    <a href="index.html">设备台</a> ·
+    <a href="params.html">参数中心</a> ·
+    <a href="rules.html">判定规则</a> ·
+    <a href="selectors.html">选择器</a> ·
+    <a href="announcements.html">公告</a>
+  </div>
 
   <div class="card" id="loginCard">
     <div style="font-weight:600;margin-bottom:8px">管理员登录</div>
-    <input id="email" value="admin@linyu.local" placeholder="管理员邮箱">
+    <input id="email" value="18882632073" placeholder="管理员账号（手机号）">
     <input id="pass" type="password" placeholder="密码">
     <div class="row"><button class="primary" onclick="login()">登录</button></div>
     <div class="err" id="loginErr"></div>
@@ -81,6 +88,12 @@
   </div>
 </div>
 <script>
+/* v0.8.0：账号支持直接填手机号，自动补内部域名，兼容填完整邮箱 */
+function normAccount(v){
+  v = (v || '').trim();
+  return (v && v.indexOf('@') < 0) ? v + '@linyu.local' : v;
+}
+
 const SUPA='https://console-8f2c1a.pages.dev/api/supa';
 const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbnNzeWlxaXR1Z3FmbWNiZGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MDEyNzUsImV4cCI6MjA5ODk3NzI3NX0.9EfbEr7BQhZtbOwHJ3IrkOy16kcaxlmzuJuV0A2Z8Eg';
 let token=sessionStorage.getItem('dm_token')||'';
@@ -152,7 +165,7 @@ async function api(path,opt){
 async function login(){
   const err=document.getElementById('loginErr'); err.textContent='';
   try{
-    const r=await fetch(SUPA+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value.trim(),password:document.getElementById('pass').value})});
+    const r=await fetch(SUPA+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify({email:normAccount(document.getElementById('email').value.trim()),password:document.getElementById('pass').value})});
     const j=await r.json(); if(!r.ok) throw new Error(j.error_description||j.msg||'登录失败');
     token=j.access_token; sessionStorage.setItem('dm_token',token); show();
   }catch(e){ err.textContent='登录失败：'+e.message; }
