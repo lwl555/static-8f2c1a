@@ -309,6 +309,7 @@ function renderDevices(){
         <div class="mono">${esc(d.id||'')} · v${esc((d.app_version||'?').replace(/^v/,''))}${d.latest_version ? ' → ' + esc(d.latest_version) : ''}</div></td>
       <td data-label="状态"><span class="badge ${cls}">${label}</span>
         <div class="mono">偏移 ${dist} / 限 ${d.allowed_radius_m||'—'} m</div></td>
+      <td data-label="待回" class="num">${d.pending_count||0}</td>
       <td data-label="位置" class="loc">${loc}</td>
       <td data-label="在干什么"><span class="badge off" style="margin-right:6px">${mode}</span>${act}
         <div class="mono">${env.join(' · ')}</div></td>
@@ -324,7 +325,7 @@ function renderDevices(){
     </tr>`;
   }).join('');
   $('devBox').innerHTML = `<table>
-    <thead><tr><th>设备</th><th>状态</th><th>位置</th><th>在干什么</th><th>今日</th><th>累计</th><th>最后心跳</th><th></th></tr></thead>
+    <thead><tr><th>设备</th><th>状态</th><th>待回</th><th>位置</th><th>在干什么</th><th>今日</th><th>累计</th><th>最后心跳</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
 
