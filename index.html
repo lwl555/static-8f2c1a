@@ -139,7 +139,9 @@ function toast(msg){
 function loadCfg(){
   URL_ = localStorage.getItem(LS_URL) || '';
   KEY_ = localStorage.getItem(LS_KEY) || '';
-  $('inUrl').value = URL_; $('inKey').value = KEY_;
+  // 后台地址预填好，管理员只需要贴 service_role 密钥
+  $('inUrl').value = URL_ || 'https://wcnssyiqitugqfmcbdhe.supabase.co';
+  $('inKey').value = KEY_;
   if(!URL_ || !KEY_) $('setupPanel').style.display = 'block';
 }
 
@@ -297,7 +299,8 @@ $('btnCfg').onclick = () => {
   p.style.display = p.style.display === 'none' ? 'block' : 'none';
 };
 $('btnSave').onclick = () => {
-  URL_ = $('inUrl').value.trim(); KEY_ = $('inKey').value.trim();
+  URL_ = $('inUrl').value.trim() || 'https://wcnssyiqitugqfmcbdhe.supabase.co';
+  KEY_ = $('inKey').value.trim();
   localStorage.setItem(LS_URL, URL_); localStorage.setItem(LS_KEY, KEY_);
   $('setupPanel').style.display = 'none';
   loadDevices();
