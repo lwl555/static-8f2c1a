@@ -41,11 +41,13 @@
     <div class="row">
       <button class="primary" onclick="save()">保存并下发</button>
       <button onclick="check()">只校验 JSON</button>
+      <button onclick="dryRun()">试运行（最近 100 条会话）</button>
       <button onclick="load()">重新拉取</button>
       <a href="index.html" style="margin-left:auto;color:var(--sub);font-size:12.5px;align-self:center">返回设备列表</a>
     </div>
     <div class="hint" id="msg"></div>
     <div class="err" id="err"></div>
+    <div id="dry" style="margin-top:14px;overflow-x:auto"></div>
   </div>
 </div>
 
@@ -113,6 +115,94 @@ async function save(){
     await api('/rest/v1/dm_settings?key=eq.rules', {method:'PATCH', headers:{Prefer:'return=minimal'}, body: JSON.stringify({value: JSON.stringify(val)})});
     msg.textContent = '已保存，App 下一轮心跳生效（约 2 分钟）';
   }catch(e){ msg.textContent=''; err.textContent = '保存失败：' + e.message; }
+}
+
+async function dryRun(){
+  const err = document.getElementById('err'), msg = document.getElementById('msg'), box = document.getElementById('dry');
+  err.textContent = ''; box.innerHTML = ''; msg.textContent = '拉取最近会话…';
+  let rules;
+  try{ rules = JSON.parse(document.getElementById('rules').value).rules || []; }
+  catch(e){ err.textContent = 'JSON 错误：' + e.message; return; }
+  try{
+    const rows = await api('/rest/v1/dm_logs?select=nick,in_text,kind,ts&order=ts.desc&limit=100');
+    const seen = new Set(); const samples = [];
+    for(const r of rows){
+      if(!r.in_text || !r.nick) continue;
+      if(seen.has(r.nick)) continue;
+      seen.add(r.nick); samples.push(r);
+      if(samples.length >= 30) break;
+    }
+    msg.textContent = '试运行 ' + samples.length + ' 条（不发送）';
+    if(!samples.length){ box.innerHTML = '<div class="hint">还没有带文本的历史记录，先在 App 里跑几轮。</div>'; return; }
+    const out = samples.map(r => {
+      const ctx = buildCtx(r.in_text);
+      const d = evaluateRules(rules, ctx);
+      return `<tr><td>${esc(r.nick)}</td><td style="max-width:360px">${esc(r.in_text.slice(0,60))}</td>
+        <td>${esc(d.ruleName || '兜底')}</td><td><b>${esc(d.action)}</b></td>
+        <td>${esc(d.param||'')}</td></tr>`;
+    }).join('');
+    box.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr><th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb">会话</th>
+      <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb">最后消息</th>
+      <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb">命中规则</th>
+      <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb">动作</th>
+      <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb">参数</th></tr></thead>
+      <tbody>${out}</tbody></table>`;
+  }catch(e){ msg.textContent=''; err.textContent = '试运行失败：' + e.message; }
+}
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function buildCtx(text){
+  const now = new Date();
+  return {
+    text: text, unread: 1, lastFromMe: false, hour: now.getHours(),
+    weekday: now.getDay()+1, wordCount: text.length,
+    hasContact: /1[3-9]\d{9}/.test(text) || /(微信|vx|wx|v信)\s*[:：]?\s*[a-zA-Z0-9_-]{5,}/i.test(text) || /(https?:\/\/|www\.)/i.test(text),
+    hasQuestion: /[?？]|(吗|呢|怎么|多少|哪|什么)/.test(text),
+    hasForbidden: /(投诉|退款|律师|报警|曝光|起诉)/.test(text),
+    isFirstChat: false, todayReplied: 0, totalReplied: 0, msgType: 'text',
+    conversationState: 'ongoing', urgency: 0, topic: '', tags: []
+  };
+}
+
+function evalLeaf(leaf, ctx){
+  const raw = ctx[leaf.field];
+  const v = leaf.value;
+  switch((leaf.op||'eq').toLowerCase()){
+    case 'eq': return String(raw).toLowerCase() === String(v).toLowerCase();
+    case 'ne': return String(raw).toLowerCase() !== String(v).toLowerCase();
+    case 'contains': return String(raw).toLowerCase().includes(String(v).toLowerCase());
+    case 'not_contains': return !String(raw).toLowerCase().includes(String(v).toLowerCase());
+    case 'regex': try{ return new RegExp(String(v)).test(String(raw)); }catch(e){ return false; }
+    case 'gt': return Number(raw) > Number(v);
+    case 'lt': return Number(raw) < Number(v);
+    case 'in': return Array.isArray(v) ? v.map(String).includes(String(raw)) : false;
+    case 'empty': return raw==null || raw==='' || (Array.isArray(raw)&&!raw.length);
+    case 'not_empty': return !(raw==null || raw==='' || (Array.isArray(raw)&&!raw.length));
+    default: return false;
+  }
+}
+
+function evalCond(c, ctx){
+  if(!c) return true;
+  if(c.all) return c.all.every(x => evalCond(x, ctx));
+  if(c.any) return c.any.some(x => evalCond(x, ctx));
+  if(c.not) return !evalCond(c.not, ctx);
+  if(c.field) return evalLeaf(c, ctx);
+  return true;
+}
+
+function evaluateRules(rules, ctx){
+  const sorted = rules.filter(r => r.enabled !== false)
+    .map((r,i) => ({r, i}))
+    .sort((a,b) => (Number(b.r.priority)||0) - (Number(a.r.priority)||0) || a.i - b.i)
+    .map(x => x.r);
+  for(const r of sorted){
+    const when = r.when || r.conditions;
+    if(evalCond(when, ctx)) return {ruleName: r.name || r.id, action: r.action, param: r.param || r.actionParam || ''};
+  }
+  return {ruleName:'', action:'wait', param:'30'};
 }
 
 if(token) showEdit();
