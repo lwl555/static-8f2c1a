@@ -83,9 +83,9 @@
     <div class="setup">
       <label>Supabase 项目地址</label>
       <input id="inUrl" placeholder="https://xxxx.supabase.co">
-      <label>密钥（读日志需要 service_role，仅本机保存）</label>
+      <label>密钥（必须 service_role，仅存在于管理员浏览器）</label>
       <input id="inKey" placeholder="eyJhbGciOi... 或 sb_secret_...">
-      <div class="hint">密钥只存在这台电脑的浏览器里，不会上传到任何地方。</div>
+      <div class="hint">用 Supabase → Project Settings → API 里的 <b>service_role</b>（不要用 anon：anon 已收紧为只能写心跳，读不到设备列表）。密钥只存在这台设备的浏览器里，不会上传。</div>
       <button class="btn primary" id="btnSave">保存并连接</button>
     </div>
   </div>
