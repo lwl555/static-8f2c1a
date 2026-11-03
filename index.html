@@ -307,6 +307,12 @@ function stateOf(d){
   return ['ok', '在用'];
 }
 
+/* SDK(API) 级别 → 用户熟悉的 Android 版本号；未知时回退显示 API 号，避免把 36 误当系统版本 */
+function androidName(sdk){
+  const m = {36:'16',35:'15',34:'14',33:'13',32:'12L',31:'12',30:'11',29:'10',28:'9',27:'8.1',26:'8.0'};
+  return m[sdk] || (sdk ? 'API ' + sdk : '?');
+}
+
 function renderModels(){
   const box = $('modelsBox'); if(!box) return;
   if(!devices.length){ box.innerHTML = '<div class="empty">还没有设备</div>'; return; }
@@ -319,7 +325,7 @@ function renderModels(){
   }
   box.innerHTML = Array.from(m.entries()).sort((a,b)=>b[1].n-a[1].n).map(([k,v]) =>
     '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f2f3">' +
-    '<span>' + esc(k) + ' <span class="hint">安卓 ' + (v.sdk||'?') + '</span></span><b>' + v.n + ' 台</b></div>').join('');
+    '<span>' + esc(k) + ' <span class="hint">安卓 ' + androidName(v.sdk) + '</span></span><b>' + v.n + ' 台</b></div>').join('');
 }
 
 function renderDevices(){
