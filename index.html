@@ -131,6 +131,11 @@
   </div>
 
   <div class="panel">
+    <div class="panel-head"><h2>机型分布</h2><span class="hint">按 品牌+机型 分组</span></div>
+    <div id="modelsBox" style="padding:12px 16px"><div class="empty">连接后显示</div></div>
+  </div>
+
+  <div class="panel">
     <div class="panel-head"><h2>设备列表</h2><span class="hint" id="lastSync"></span></div>
     <div id="devBox"><div class="empty">连接后显示</div></div>
     <div class="setup" style="max-width:none;padding:14px 18px;border-top:1px solid var(--line)">
@@ -219,7 +224,7 @@ async function loadDevices(){
   try{
     const rows = await api('dm_devices?select=*&order=last_seen.desc');
     devices = rows || [];
-    renderStats(); renderDevices();
+    renderStats(); renderDevices(); renderModels();
     $('subline').textContent = '已登录 · 实时数据';
     $('lastSync').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN');
   }catch(e){
@@ -293,6 +298,21 @@ function stateOf(d){
   if(!d.engine_on)    return ['off', 'App 在·总开关关'];
   if(p === 'idle')    return ['warn','待机'];
   return ['ok', '在用'];
+}
+
+function renderModels(){
+  const box = $('modelsBox'); if(!box) return;
+  if(!devices.length){ box.innerHTML = '<div class="empty">还没有设备</div>'; return; }
+  const m = new Map();
+  for(const d of devices){
+    const key = (d.brand ? d.brand + ' ' : '') + (d.model || d.alias || '未知');
+    const cur = m.get(key) || {n:0, sdk:d.sdk||0};
+    cur.n++;
+    m.set(key, cur);
+  }
+  box.innerHTML = Array.from(m.entries()).sort((a,b)=>b[1].n-a[1].n).map(([k,v]) =>
+    '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f2f3">' +
+    '<span>' + esc(k) + ' <span class="hint">安卓 ' + (v.sdk||'?') + '</span></span><b>' + v.n + ' 台</b></div>').join('');
 }
 
 function renderDevices(){
@@ -432,7 +452,7 @@ loadCfg();
 if(TOKEN) loadDevices();
 setInterval(() => { if(TOKEN) loadDevices(); }, 60000);
 // 每 20 秒重算一次「几分钟前 / 在用还是待机」，不用等下一次拉数据
-setInterval(() => { if(devices.length){ renderStats(); renderDevices(); } }, 20000);
+setInterval(() => { if(devices.length){ renderStats(); renderDevices(); renderModels(); } }, 20000);
 </script>
 </body>
 </html>
