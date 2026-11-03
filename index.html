@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>私信助手 · 设备管理台</title>
+<style>
+  :root{
+    --ink:#111418; --mid:#4a5158; --sub:#828a92; --line:#e3e6e9;
+    --bg:#f7f8f9; --card:#fff; --accent:#2e5d4f; --accent-2:#eef3f1;
+    --red:#a33b2c; --red-2:#fbeeeb; --amber:#8a5a2b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:32px 24px 80px}
+  header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:24px}
+  h1{font-size:22px;font-weight:600;margin:0;letter-spacing:-.01em}
+  .sub{font-size:12.5px;color:var(--sub);margin-top:3px}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 14px;border-radius:5px;
+    font-size:13px;cursor:pointer;font-family:inherit;transition:.15s}
+  .btn:hover{border-color:var(--ink)}
+  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn.sm{padding:4px 10px;font-size:12px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px 18px}
+  .stat .k{font-size:11.5px;color:var(--sub);letter-spacing:.06em;text-transform:uppercase}
+  .stat .v{font-size:26px;font-weight:300;margin-top:6px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .stat .v small{font-size:13px;color:var(--sub);margin-left:4px;font-weight:400}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:20px}
+  .panel-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+  .panel-head h2{font-size:14px;font-weight:600;margin:0}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11.5px;color:var(--sub);font-weight:600;letter-spacing:.05em;
+     text-transform:uppercase;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap;background:#fafbfb}
+  td{padding:11px 14px;border-bottom:1px solid #f0f2f3;font-size:13px;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#fafbfb}
+  .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;color:var(--mid)}
+  .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:3px;font-weight:600;letter-spacing:.02em}
+  .badge.ok{background:var(--accent-2);color:var(--accent)}
+  .badge.off{background:#f0f2f3;color:var(--sub)}
+  .badge.bad{background:var(--red-2);color:var(--red)}
+  .badge.warn{background:#fbf5ec;color:var(--amber)}
+  .num{font-variant-numeric:tabular-nums}
+  .empty{padding:48px;text-align:center;color:var(--sub);font-size:13px}
+  .setup{padding:20px 18px;display:grid;gap:10px;max-width:520px}
+  .setup input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:5px;font-size:13px;
+    font-family:inherit;outline:none}
+  .setup input:focus{border-color:var(--ink)}
+  .setup label{font-size:12px;color:var(--sub)}
+  .hint{font-size:12px;color:var(--sub);line-height:1.7}
+  .logs{background:#fafbfb;padding:0}
+  .logrow{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:10px 18px;border-bottom:1px solid #f0f2f3;font-size:12.5px}
+  .logrow:last-child{border-bottom:none}
+  .logrow .t{color:var(--sub);font-family:ui-monospace,Consolas,monospace;font-size:11.5px}
+  .logrow .c{color:var(--mid)}
+  .logrow .c b{color:var(--ink);font-weight:600}
+  .reason{color:var(--amber)}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
+    padding:10px 20px;border-radius:5px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:99}
+  .toast.show{opacity:1}
+  @media(max-width:720px){.wrap{padding:20px 14px 60px} th:nth-child(3),td:nth-child(3){display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>私信助手 · 设备管理台</h1>
+      <div class="sub" id="subline">正在连接…</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn sm" id="btnCfg">连接设置</button>
+      <button class="btn sm primary" id="btnReload">刷新</button>
+    </div>
+  </header>
+
+  <div class="panel" id="setupPanel" style="display:none">
+    <div class="panel-head"><h2>连接设置</h2></div>
+    <div class="setup">
+      <label>Supabase 项目地址</label>
+      <input id="inUrl" placeholder="https://xxxx.supabase.co">
+      <label>密钥（读日志需要 service_role，仅本机保存）</label>
+      <input id="inKey" placeholder="eyJhbGciOi... 或 sb_secret_...">
+      <div class="hint">密钥只存在这台电脑的浏览器里，不会上传到任何地方。</div>
+      <button class="btn primary" id="btnSave">保存并连接</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">设备总数</div><div class="v" id="sTotal">—</div></div>
+    <div class="stat"><div class="k">正在用</div><div class="v" id="sWorking">—</div></div>
+    <div class="stat"><div class="k">待机</div><div class="v" id="sIdle">—</div></div>
+    <div class="stat"><div class="k">离线 / 已停用</div><div class="v" id="sOff">—</div></div>
+    <div class="stat"><div class="k">今日回复合计</div><div class="v" id="sToday">—</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>设备列表</h2><span class="hint" id="lastSync"></span></div>
+    <div id="devBox"><div class="empty">连接后显示</div></div>
+    <div class="setup" style="max-width:none;padding:14px 18px;border-top:1px solid var(--line)">
+      <div class="hint">
+        <b>怎么判断有没有人在用：</b>App 开着时每 2 分钟上报一次心跳，关掉后每 10 分钟一次。<br>
+        <b>在用</b>＝5 分钟内有心跳且总开关是开的；<b>待机</b>＝心跳还在但超过 5 分钟没动静，或者总开关关着；
+        <b>离线</b>＝超过 30 分钟没上报，一般是关机、被系统杀了或断网。<br>
+        真要确认在干活，点「流水」看最近有没有新记录——回复条数在涨才是真的在跑。
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="logPanel" style="display:none">
+    <div class="panel-head"><h2>动作流水 <span class="mono" id="logDev"></span></h2>
+      <button class="btn sm" id="btnCloseLog">收起</button></div>
+    <div class="logs" id="logBox"></div>
+  </div>
+
+  <footer style="margin-top:8px;color:var(--sub);font-size:11.5px;line-height:1.8">
+    私信助手 · 设备管理台　开发者 linyu<br>
+    此页面仅供管理员使用，请勿转发链接；密钥只保存在管理员自己的浏览器里。
+  </footer>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const LS_URL = 'dm_admin_url', LS_KEY = 'dm_admin_key';
+let URL_ = '', KEY_ = '', devices = [];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+function loadCfg(){
+  URL_ = localStorage.getItem(LS_URL) || '';
+  KEY_ = localStorage.getItem(LS_KEY) || '';
+  $('inUrl').value = URL_; $('inKey').value = KEY_;
+  if(!URL_ || !KEY_) $('setupPanel').style.display = 'block';
+}
+
+async function api(path, opts={}){
+  const r = await fetch(URL_.replace(/\/$/,'') + '/rest/v1/' + path, {
+    ...opts,
+    headers: {
+      'apikey': KEY_, 'Authorization': 'Bearer ' + KEY_,
+      'Content-Type': 'application/json', ...(opts.headers||{})
+    }
+  });
+  if(!r.ok) throw new Error(await r.text() || ('HTTP ' + r.status));
+  const txt = await r.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+async function loadDevices(){
+  if(!URL_ || !KEY_) return;
+  try{
+    const rows = await api('dm_devices?select=*&order=last_seen.desc');
+    devices = rows || [];
+    renderStats(); renderDevices();
+    $('subline').textContent = '已连接 · ' + URL_.replace(/^https?:\/\//,'');
+    $('lastSync').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN');
+  }catch(e){
+    $('devBox').innerHTML = '<div class="empty">读取失败：' + esc(e.message) + '<br><br>检查地址/密钥是否正确，表是否已建。</div>';
+    $('subline').textContent = '连接异常';
+  }
+}
+
+function renderStats(){
+  const working = devices.filter(d => isWorking(d));
+  const off = devices.filter(d => presence(d) === 'offline' || d.status !== 'active');
+  const idle = devices.filter(d => presence(d) === 'idle' || (presence(d)==='online' && !d.engine_on));
+  const today = devices.reduce((a,d)=> a + (d.today_reply||0), 0);
+  $('sTotal').textContent = devices.length;
+  $('sWorking').textContent = working.length;
+  $('sIdle').textContent = idle.length;
+  $('sOff').textContent = off.length;
+  $('sToday').textContent = today;
+}
+
+/* 心跳开着时 2 分钟一次、关掉时 10 分钟一次，所以：
+   5 分钟内 = 在线；30 分钟内 = 待机；更久 = 离线。 */
+const MIN5 = 5*60*1000, MIN30 = 30*60*1000;
+function idleMs(d){
+  if(!d.last_seen) return Infinity;
+  return Date.now() - new Date(d.last_seen).getTime();
+}
+function presence(d){
+  const ms = idleMs(d);
+  if(ms < MIN5) return 'online';
+  if(ms < MIN30) return 'idle';
+  return 'offline';
+}
+function isWorking(d){
+  return presence(d) === 'online' && !!d.engine_on && d.status === 'active';
+}
+
+function fmtIdle(d){
+  const ms = idleMs(d);
+  if(ms === Infinity) return '从未上报';
+  if(ms < 60000) return '刚刚';
+  if(ms < 3600000) return Math.floor(ms/60000) + ' 分钟前';
+  if(ms < 86400000) return Math.floor(ms/3600000) + ' 小时前';
+  return Math.floor(ms/86400000) + ' 天前';
+}
+
+function fmtTime(s){
+  if(!s) return '—';
+  const d = new Date(s), diff = (Date.now()-d)/1000;
+  if(diff < 60) return '刚刚';
+  if(diff < 3600) return Math.floor(diff/60)+' 分钟前';
+  if(diff < 86400) return Math.floor(diff/3600)+' 小时前';
+  return d.toLocaleDateString('zh-CN') + ' ' + d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+}
+
+function stateOf(d){
+  if(d.status === 'banned')    return ['bad',  '超出范围·已停用'];
+  if(d.status === 'suspended') return ['warn', '手动停用'];
+  const p = presence(d);
+  if(p === 'offline') return ['off', '离线'];
+  if(!d.engine_on)    return ['off', 'App 在·总开关关'];
+  if(p === 'idle')    return ['warn','待机'];
+  return ['ok', '在用'];
+}
+
+function renderDevices(){
+  if(!devices.length){ $('devBox').innerHTML = '<div class="empty">还没有设备上报。装好 APP 并开启后，这里会出现。</div>'; return; }
+  const rows = devices.map(d => {
+    const [cls, label] = stateOf(d);
+    const dist = (d.distance_m != null && d.distance_m >= 0) ? Math.round(d.distance_m) + ' m' : '—';
+    const mode = d.mode === 'DRAFT' ? '草稿' : '自动';
+    const act = d.current_action ? esc(d.current_action) : '—';
+    const env = [];
+    if(d.battery != null && d.battery >= 0) env.push(d.battery + '%');
+    env.push(d.screen_on === false ? '息屏' : '亮屏');
+    return `<tr>
+      <td><b>${esc(d.alias || '未命名')}</b>
+        <div class="mono">${esc((d.id||'').slice(0,16))} · v${esc((d.app_version||'?').replace(/^v/,''))}</div></td>
+      <td><span class="badge ${cls}">${label}</span>
+        <div class="mono">偏移 ${dist} / 限 ${d.allowed_radius_m||'—'} m</div></td>
+      <td><span class="badge off" style="margin-right:6px">${mode}</span>${act}
+        <div class="mono">${env.join(' · ')}</div></td>
+      <td class="num">${d.today_reply||0}</td>
+      <td class="num">${d.total_reply||0}</td>
+      <td class="mono">${fmtIdle(d)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sm" onclick="showLogs('${esc(d.id)}')">流水</button>
+        <button class="btn sm" onclick="toggleDev('${esc(d.id)}','${d.status==='active'?'suspended':'active'}')">${d.status==='active'?'停用':'恢复'}</button>
+      </td>
+    </tr>`;
+  }).join('');
+  $('devBox').innerHTML = `<table>
+    <thead><tr><th>设备</th><th>状态</th><th>在干什么</th><th>今日</th><th>累计</th><th>最后心跳</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+async function showLogs(id){
+  $('logPanel').style.display = 'block';
+  $('logDev').textContent = id;
+  $('logBox').innerHTML = '<div class="empty">读取中…</div>';
+  try{
+    const rows = await api(`dm_logs?select=*&device_id=eq.${encodeURIComponent(id)}&order=ts.desc&limit=60`);
+    if(!rows || !rows.length){ $('logBox').innerHTML = '<div class="empty">暂无记录</div>'; return; }
+    $('logBox').innerHTML = rows.map(r => {
+      const t = new Date(r.ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const kindMap = {reply:'已回复', skip:'跳过', error:'异常', guard:'校验'};
+      let body = '';
+      if(r.kind === 'reply') body = `<b>${esc(r.nick)}</b>：${esc(r.in_text)} <span style="color:#c9ced3">→</span> ${esc(r.out_text)}`;
+      else body = `<b>${esc(r.nick||'—')}</b>：${esc(r.in_text||'')} <span class="reason">${esc(r.reason||'')}</span>`;
+      return `<div class="logrow"><div class="t">${t}</div><div class="c"><span class="badge ${r.kind==='reply'?'ok':'off'}" style="margin-right:8px">${kindMap[r.kind]||r.kind}</span>${body}</div></div>`;
+    }).join('');
+  }catch(e){
+    $('logBox').innerHTML = '<div class="empty">读不到日志：' + esc(e.message) +
+      '<br><br>日志表只允许写入，读取需要 service_role 密钥。点右上「连接设置」换一下。</div>';
+  }
+}
+
+async function toggleDev(id, status){
+  if(!confirm(status==='suspended' ? '停用这台设备？它会静默停止工作。' : '恢复这台设备？')) return;
+  try{
+    await api('dm_devices?id=eq.' + encodeURIComponent(id), {
+      method:'PATCH',
+      headers:{'Prefer':'return=minimal'},
+      body: JSON.stringify({status, ban_reason: status==='active' ? '' : 'manual'})
+    });
+    toast('已更新');
+    loadDevices();
+  }catch(e){ toast('操作失败：' + e.message); }
+}
+
+$('btnCfg').onclick = () => {
+  const p = $('setupPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+};
+$('btnSave').onclick = () => {
+  URL_ = $('inUrl').value.trim(); KEY_ = $('inKey').value.trim();
+  localStorage.setItem(LS_URL, URL_); localStorage.setItem(LS_KEY, KEY_);
+  $('setupPanel').style.display = 'none';
+  loadDevices();
+};
+$('btnReload').onclick = loadDevices;
+$('btnCloseLog').onclick = () => $('logPanel').style.display = 'none';
+
+loadCfg();
+loadDevices();
+setInterval(loadDevices, 60000);
+// 每 20 秒重算一次「几分钟前 / 在用还是待机」，不用等下一次拉数据
+setInterval(() => { if(devices.length){ renderStats(); renderDevices(); } }, 20000);
+</script>
+</body>
+</html>
