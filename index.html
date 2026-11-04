@@ -29,17 +29,6 @@
   .stat .k{font-size:11.5px;color:var(--sub);letter-spacing:.06em;text-transform:uppercase}
   .stat .v{font-size:26px;font-weight:300;margin-top:6px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
   .stat .v small{font-size:13px;color:var(--sub);margin-left:4px;font-weight:400}
-  /* 统计卡可点击筛选：点一下只看这一类，再点一下取消 */
-  .stat{cursor:pointer;transition:.15s}
-  .stat:hover{border-color:#b9c1c9}
-  .stat.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);background:#fcfdfd}
-  .stat.on .k{color:var(--ink)}
-  .stat.plain{cursor:default}
-  .stat.plain:hover{border-color:var(--line)}
-  .btn.danger{color:var(--red);border-color:#e8c9c4}
-  .btn.danger:hover{background:var(--red-2);border-color:var(--red)}
-  .locwarn{color:#a9b0b8;font-size:11.5px}
-  .opbar{display:flex;gap:6px;flex-wrap:wrap;min-width:230px}
   .panel{background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:20px}
   .panel-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
   .panel-head h2{font-size:14px;font-weight:600;margin:0}
@@ -50,7 +39,7 @@
   tr:last-child td{border-bottom:none}
   tbody tr:hover{background:#fafbfb}
   .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;color:var(--mid)}
-  .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:3px;font-weight:600;letter-spacing:.02em}
+  .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:3px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
   .badge.ok{background:var(--accent-2);color:var(--accent)}
   .badge.off{background:#f0f2f3;color:var(--sub)}
   .badge.bad{background:var(--red-2);color:var(--red)}
@@ -62,6 +51,10 @@
     font-family:inherit;outline:none}
   .setup input:focus{border-color:var(--ink)}
   .setup label{font-size:12px;color:var(--sub)}
+  .setup textarea{width:100%;min-height:200px;padding:10px 11px;border:1px solid var(--line);border-radius:5px;
+    font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.5px;line-height:1.6;
+    outline:none;resize:vertical;background:#fff}
+  .setup textarea:focus{border-color:var(--ink)}
   .hint{font-size:12px;color:var(--sub);line-height:1.7}
   .logs{background:#fafbfb;padding:0}
   .logrow{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:10px 18px;border-bottom:1px solid #f0f2f3;font-size:12.5px}
@@ -95,6 +88,7 @@
   td[data-label="操作"]{display:flex;flex-wrap:wrap;gap:8px;padding-top:10px}
   td[data-label="操作"]::before{display:none}
   td[data-label="操作"] .btn.sm{flex:1 1 44%}
+  td[data-label="操作"] > div{display:flex;flex-wrap:wrap;gap:8px;width:100%}
   .loc{word-break:break-all}
   .logrow{flex-wrap:wrap}
   td{white-space:normal!important}
@@ -110,11 +104,12 @@
       <h1>私信助手 · 设备管理台</h1>
       <div class="sub" id="subline">正在连接…</div>
     </div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
       <a class="btn sm" href="rules.html" style="text-decoration:none;color:inherit">判定规则</a>
       <a class="btn sm" href="params.html" style="text-decoration:none;color:inherit">参数</a>
       <a class="btn sm" href="announcements.html" style="text-decoration:none;color:inherit">公告</a>
       <a class="btn sm" href="selectors.html" style="text-decoration:none;color:inherit">选择器</a>
+      <button class="btn sm" id="btnKeys">推荐密钥</button>
       <button class="btn sm" id="btnCfg">连接设置</button>
       <button class="btn sm primary" id="btnReload">刷新</button>
       <button class="btn sm" style="background:#a33b2c;color:#fff;border-color:#a33b2c" onclick="globalStop()">全局急停</button>
@@ -133,16 +128,32 @@
     </div>
   </div>
 
-  <div class="stats" id="statCards">
-    <div class="stat on" data-f="all"><div class="k">设备总数</div><div class="v" id="sTotal">—</div></div>
-    <div class="stat" data-f="working"><div class="k">在用</div><div class="v" id="sWorking">—</div></div>
-    <div class="stat" data-f="idle"><div class="k">待机</div><div class="v" id="sIdle">—</div></div>
-    <div class="stat" data-f="alert"><div class="k">异常</div><div class="v" id="sAlert">—</div></div>
-    <div class="stat" data-f="offline"><div class="k">离线</div><div class="v" id="sOffline">—</div></div>
-    <div class="stat" data-f="stopped"><div class="k">已停用 / 封禁</div><div class="v" id="sStopped">—</div></div>
-    <div class="stat plain"><div class="k">今日回复合计</div><div class="v" id="sToday">—</div></div>
+  <div class="panel" id="keysPanel" style="display:none">
+    <div class="panel-head">
+      <h2>推荐密钥</h2>
+      <div style="display:flex;gap:6px">
+        <button class="btn sm" id="btnKeysClose">收起</button>
+        <button class="btn sm primary" id="btnKeysSave">保存</button>
+      </div>
+    </div>
+    <div class="setup" style="max-width:none;padding:14px 18px">
+      <div class="hint">
+        对应 <span class="mono">dm_settings</span> 里 key=<span class="mono">recommend_keys</span> 的 JSON 数组，
+        每项 <span class="mono">{name, url, tag, desc}</span>。App 的「推荐密钥」列表读的就是这里；读不到时按空数组模板 <span class="mono">[]</span> 显示。
+      </div>
+      <textarea id="keysText" spellcheck="false" placeholder='[{"name":"DeepSeek 开放平台","url":"https://platform.deepseek.com/api_keys","tag":"推荐","desc":"主模型 key"}]'></textarea>
+      <div class="hint" id="keysHint"></div>
+    </div>
   </div>
-  <div class="hint" style="margin:-8px 0 18px">点上面的卡片可以只看那一类设备，再点一下取消。</div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">设备总数</div><div class="v" id="sTotal">—</div></div>
+    <div class="stat"><div class="k">正在用</div><div class="v" id="sWorking">—</div></div>
+    <div class="stat"><div class="k">待机</div><div class="v" id="sIdle">—</div></div>
+    <div class="stat"><div class="k">异常</div><div class="v" id="sAlert">—</div></div>
+    <div class="stat"><div class="k">离线 / 已停用</div><div class="v" id="sOff">—</div></div>
+    <div class="stat"><div class="k">今日回复合计</div><div class="v" id="sToday">—</div></div>
+  </div>
 
   <div class="panel">
     <div class="panel-head"><h2>机型分布</h2><span class="hint">按 品牌+机型 分组</span></div>
@@ -155,31 +166,15 @@
     <div class="setup" style="max-width:none;padding:14px 18px;border-top:1px solid var(--line)">
       <div class="hint">
         <b>怎么判断有没有人在用：</b>App 开着时每 2 分钟上报一次心跳，关掉后每 10 分钟一次。<br>
-        <b>在用</b>＝5 分钟内有心跳且总开关是开的；<b>待机</b>＝心跳还在但超过 5 分钟没动静，或者总开关关着；
-        <b>离线</b>＝超过 30 分钟没上报，一般是关机、被系统杀了或断网。<br>
+        <b>在线</b>＝3 分钟内有同步；<b>同步中</b>＝3–10 分钟前同步过（多半在切后台或补数据）；
+        <b>离线</b>＝超过 10 分钟没上报，一般是关机、被系统杀了或断网；<b>状态未知</b>＝这台设备还没有 last_seen。<br>
         真要确认在干活，点「流水」看最近有没有新记录——回复条数在涨才是真的在跑。
       </div>
     </div>
   </div>
 
-  <div class="panel" id="maintPanel" style="display:none">
-    <div class="panel-head"><h2>数据维护</h2><span class="hint">旧日志自动清理，数据库不会越用越胖</span></div>
-    <div class="setup" style="max-width:none;padding:14px 18px">
-      <div class="hint" style="margin-bottom:10px">
-        云端定时任务每天自动跑一次：删掉超过「保留天数」的动作流水，并保证每台设备最多留 3000 条。<br>
-        当前流水 <b id="mLogCnt">—</b> 条，最早一条 <b id="mLogOld">—</b>。
-      </div>
-      <label>保留天数（1–3650）</label>
-      <input id="mDays" type="number" min="1" max="3650" value="30" style="max-width:180px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn primary" id="btnMaintSave">保存保留天数</button>
-        <button class="btn" id="btnMaintRun">立即清理一次</button>
-      </div>
-      <div class="hint" id="maintHint" style="margin-top:8px"></div>
-    </div>
-  </div>
-
-  <div class="panel" id="logPanel" style="display:none">    <div class="panel-head"><h2>动作流水 <span class="mono" id="logDev"></span></h2>
+  <div class="panel" id="logPanel" style="display:none">
+    <div class="panel-head"><h2>动作流水 <span class="mono" id="logDev"></span></h2>
       <div style="display:flex;gap:6px">
         <button class="btn sm" id="btnLogRefresh">刷新</button>
         <button class="btn sm" id="btnCloseLog">收起</button>
@@ -237,7 +232,6 @@ async function login(){
     $('setupPanel').style.display = 'none';
     $('subline').textContent = '已登录 · 安全会话';
     loadDevices();
-    loadMaint();
   }catch(e){
     $('loginHint').textContent = '登录失败：' + (e.message || '账号或密码不正确');
   }
@@ -272,53 +266,51 @@ async function loadDevices(){
 
 function isAlert(d){
   const p = presence(d);
-  return d.status !== 'active' || p === 'offline' ||
+  return d.status !== 'active' || p === 'offline' || p === 'unknown' ||
          (!!d.engine_on && (!d.accessibility_on || !d.listener_on));
 }
 
-/* 一台设备归到哪一类（互斥，按优先级从上往下判），卡片的数字和筛选都用它 */
-function catOf(d){
-  const st = String(d.status || 'active');
-  if(st === 'banned' || st === 'suspended') return 'stopped';
-  const p = presence(d);
-  if(p === 'offline') return 'offline';
-  if(d.engine_on && (!d.accessibility_on || !d.listener_on)) return 'alert';
-  if(!d.engine_on) return 'idle';
-  if(p === 'idle') return 'idle';
-  return 'working';
-}
-
-/* 当前筛选：all / working / idle / alert / offline / stopped */
-let filterMode = 'all';
-
 function renderStats(){
-  const cnt = {working:0, idle:0, alert:0, offline:0, stopped:0};
-  let today = 0;
-  for(const d of devices){ cnt[catOf(d)]++; today += (d.today_reply||0); }
-  $('sTotal').textContent = devices.length;
-  $('sWorking').textContent = cnt.working;
-  $('sIdle').textContent = cnt.idle;
-  $('sAlert').textContent = cnt.alert;
-  $('sOffline').textContent = cnt.offline;
-  $('sStopped').textContent = cnt.stopped;
-  $('sToday').textContent = today;
-  document.querySelectorAll('#statCards .stat[data-f]').forEach(function(el){
-    el.classList.toggle('on', el.dataset.f === filterMode);
+  const working = devices.filter(d => isWorking(d));
+  const off = devices.filter(d => {
+    const p = presence(d);
+    return p === 'offline' || p === 'unknown' || d.status !== 'active';
   });
+  const idle = devices.filter(d => presence(d) === 'syncing' || (presence(d)==='online' && !d.engine_on));
+  const alert = devices.filter(d => isAlert(d));
+  const today = devices.reduce((a,d)=> a + (d.today_reply||0), 0);
+  $('sTotal').textContent = devices.length;
+  $('sWorking').textContent = working.length;
+  $('sIdle').textContent = idle.length;
+  $('sAlert').textContent = alert.length;
+  $('sOff').textContent = off.length;
+  $('sToday').textContent = today;
 }
 
-/* 心跳开着时 2 分钟一次、关掉时 10 分钟一次，所以：
-   5 分钟内 = 在线；30 分钟内 = 待机；更久 = 离线。 */
-const MIN5 = 5*60*1000, MIN30 = 30*60*1000;
+/* 设备四态，按 last_seen 距今算：
+   ≤3 分钟 = 在线；3–10 分钟 = 同步中；>10 分钟 = 离线；没有 last_seen = 状态未知。 */
+const MIN3 = 3*60*1000, MIN10 = 10*60*1000;
 function idleMs(d){
   if(!d.last_seen) return Infinity;
-  return Date.now() - new Date(d.last_seen).getTime();
+  const t = new Date(d.last_seen).getTime();
+  return isNaN(t) ? Infinity : Date.now() - t;
 }
-function presence(d){
+function syncState(d){
   const ms = idleMs(d);
-  if(ms < MIN5) return 'online';
-  if(ms < MIN30) return 'idle';
+  if(!isFinite(ms)) return 'unknown';
+  if(ms <= MIN3) return 'online';
+  if(ms <= MIN10) return 'syncing';
   return 'offline';
+}
+function presence(d){ return syncState(d); }
+/* 徽标文案固定，不要随手改：在线 / 同步中 / 离线 / 状态未知四态 */
+function stateBadge(d){
+  const st = syncState(d);
+  if(st === 'unknown') return ['off', '状态未知 · 点击重试'];
+  const m = Math.max(0, Math.floor(idleMs(d) / 60000));
+  if(st === 'online')  return ['ok',   '在线 · 刚刚同步'];
+  if(st === 'syncing') return ['warn', '同步中 · 最后同步 ' + m + ' 分钟前'];
+  return ['off', '离线 · 最后同步 ' + m + ' 分钟前'];
 }
 function isWorking(d){
   return presence(d) === 'online' && !!d.engine_on && d.status === 'active';
@@ -333,6 +325,13 @@ function fmtIdle(d){
   return Math.floor(ms/86400000) + ' 天前';
 }
 
+function fmtDateTime(s){
+  if(!s) return '—';
+  const d = new Date(s);
+  if(isNaN(d.getTime())) return '—';
+  return d.toLocaleString('zh-CN', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+
 function fmtTime(s){
   if(!s) return '—';
   const d = new Date(s), diff = (Date.now()-d)/1000;
@@ -342,22 +341,11 @@ function fmtTime(s){
   return d.toLocaleDateString('zh-CN') + ' ' + d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
 }
 
-function stateOf(d){
-  if(d.status === 'banned')    return ['bad',  '超出范围·已停用'];
-  if(d.status === 'suspended') return ['warn', '手动停用'];
-  const p = presence(d);
-  if(p === 'offline') return ['off', '离线'];
-  if(d.engine_on && !d.accessibility_on) return ['bad', '无障碍被关'];
-  if(d.engine_on && !d.listener_on)      return ['warn','通知监听掉线'];
-  if(!d.engine_on)    return ['off', 'App 在·总开关关'];
-  if(p === 'idle')    return ['warn','待机'];
-  return ['ok', '在用'];
-}
-
-/* SDK(API) 级别 → 用户熟悉的 Android 版本号；未知时回退显示 API 号，避免把 36 误当系统版本 */
-function androidName(sdk){
-  const m = {36:'16',35:'15',34:'14',33:'13',32:'12L',31:'12',30:'11',29:'10',28:'9',27:'8.1',26:'8.0'};
-  return m[sdk] || (sdk ? 'API ' + sdk : '?');
+/* 停用/封禁单独用一个小徽标，不挤占四态文案 */
+function statusFlag(d){
+  if(d.status === 'banned')    return '已封禁';
+  if(d.status === 'suspended') return '已停用';
+  return '';
 }
 
 function renderModels(){
@@ -372,71 +360,56 @@ function renderModels(){
   }
   box.innerHTML = Array.from(m.entries()).sort((a,b)=>b[1].n-a[1].n).map(([k,v]) =>
     '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f2f3">' +
-    '<span>' + esc(k) + ' <span class="hint">安卓 ' + androidName(v.sdk) + '</span></span><b>' + v.n + ' 台</b></div>').join('');
+    '<span>' + esc(k) + ' <span class="hint">安卓 ' + (v.sdk||'?') + '</span></span><b>' + v.n + ' 台</b></div>').join('');
 }
 
 function renderDevices(){
   if(!devices.length){ $('devBox').innerHTML = '<div class="empty">还没有设备上报。装好 APP 并开启后，这里会出现。</div>'; return; }
-  const list = filterMode === 'all' ? devices : devices.filter(d => catOf(d) === filterMode);
-  if(!list.length){
-    $('devBox').innerHTML = '<div class="empty">这一分类下暂时没有设备。<br><br>点上面的「设备总数」取消筛选。</div>';
-    return;
-  }
-  const rows = list.map(d => {
-    const [cls, label] = stateOf(d);
+  const rows = devices.map(d => {
+    const [cls, label] = stateBadge(d);
+    const st = syncState(d);
+    const flag = statusFlag(d);
+    const diag = d.engine_on && !d.accessibility_on ? '无障碍被关'
+               : (d.engine_on && !d.listener_on ? '通知监听掉线' : '');
     const dist = (d.distance_m != null && d.distance_m >= 0) ? Math.round(d.distance_m) + ' m' : '—';
     const mode = d.mode === 'DRAFT' ? '草稿' : '自动';
     const act = d.current_action ? esc(d.current_action) : '—';
     const env = [];
     if(d.battery != null && d.battery >= 0) env.push(d.battery + '%');
     env.push(d.screen_on === false ? '息屏' : '亮屏');
-
-    /* 位置：0,0 是「手机没给定位」的占位值，不能当真实坐标画出去。
-       lat / lng 必须同时非 0 才算有效，只有一个有值说明上报本身就残缺。
-       这种情况必须写清原因，否则看起来像后台坏了。 */
-    const lat = Number(d.lat || 0), lng = Number(d.lng || 0);
-    const hasLoc = lat !== 0 && lng !== 0 && isFinite(lat) && isFinite(lng);
-    const loc = hasLoc
-      ? `<a target="_blank" rel="noopener" href="https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(d.alias||d.id)}">${lat.toFixed(4)}, ${lng.toFixed(4)}</a>`
-      : '<span class="locwarn">未上报定位</span>';
-    const locNote = hasLoc
-      ? (Number(d.accuracy) > 0 ? `<div class="mono">精度约 ${Math.round(d.accuracy)} m</div>` : '')
-      : `<div class="mono locwarn">${presence(d)==='offline' ? '设备离线，最后上报没带坐标' : '手机没开定位 / 未授权'}</div>`;
-
-    const banned = d.status === 'banned' || d.status === 'suspended';
-    /* 封禁之后设备到底停没停：engine_on 是设备自己上报的总开关。
-       还是 true 说明它还没收到心跳，别以为已经封住了。 */
-    const banNote = banned
-      ? `<div class="mono" style="color:${d.engine_on ? '#a33b2c' : '#1a7f4b'}">${
-          d.engine_on ? '已下发 · 等下次心跳才停' : '设备已停止'
-        }</div>`
-      : '';
+    const loc = (d.lat && d.lng)
+      ? `<a target="_blank" rel="noopener" href="https://uri.amap.com/marker?position=${d.lng},${d.lat}&name=${encodeURIComponent(d.alias||d.id)}">${Number(d.lat).toFixed(4)}, ${Number(d.lng).toFixed(4)}</a>`
+      : '—';
     return `<tr>
       <td data-label="设备"><b>${esc(d.alias || '未命名')}</b>
         <div class="mono">${esc(d.id||'')} · v${esc((d.app_version||'?').replace(/^v/,''))}${d.latest_version ? ' → ' + esc(d.latest_version) : ''}</div></td>
-      <td data-label="状态"><span class="badge ${cls}">${label}</span>
-        <div class="mono">偏移 ${dist} / 限 ${d.allowed_radius_m||'—'} m</div>${banNote}</td>
+      <td data-label="状态">
+        <span class="badge ${cls}" style="cursor:pointer" title="点击重新拉取这台设备" onclick="refreshDevice('${esc(d.id)}')">${label}</span>
+        <div class="mono">${flag ? '<span class="badge bad" style="margin-right:6px">' + esc(flag) + '</span>' : ''}${diag ? '<span style="color:var(--amber)">' + esc(diag) + '</span> · ' : ''}偏移 ${dist} / 限 ${d.allowed_radius_m||'—'} m</div></td>
       <td data-label="待回" class="num">${d.pending_count||0}</td>
-      <td data-label="位置" class="loc">${loc}${locNote}</td>
+      <td data-label="位置" class="loc">${loc}</td>
       <td data-label="在干什么"><span class="badge off" style="margin-right:6px">${mode}</span>${act}
         <div class="mono">${env.join(' · ')}</div></td>
       <td data-label="今日" class="num">${d.today_reply||0}</td>
       <td data-label="累计" class="num">${d.total_reply||0}</td>
-      <td data-label="最后心跳" class="mono">${fmtIdle(d)}</td>
-      <td data-label="操作"><div class="opbar">
+      <td data-label="最后同步" class="mono">${fmtDateTime(d.last_seen)}<div class="hint" style="font-family:inherit">${st === 'unknown' ? '从未上报' : fmtIdle(d)}</div></td>
+      <td data-label="操作" style="vertical-align:top">
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <button class="btn sm" onclick="refreshDevice('${esc(d.id)}')">刷新</button>
+        <button class="btn sm" onclick="editLicense('${esc(d.id)}')">服务期</button>
         <button class="btn sm" onclick="showLogs('${esc(d.id)}')">流水</button>
         <button class="btn sm" onclick="toggleService('${esc(d.id)}', ${d.service_on ? 'false' : 'true'})">${d.service_on ? '关云服务' : '开通云服务'}</button>
         <button class="btn sm" onclick="toggleStop('${esc(d.id)}', ${d.emergency_stop ? 'false' : 'true'})">${d.emergency_stop ? '恢复' : '急停'}</button>
         <button class="btn sm" onclick="togglePause('${esc(d.id)}', ${d.ai_paused ? 'false' : 'true'})">${d.ai_paused ? '恢复AI' : '暂停AI'}</button>
         <button class="btn sm" onclick="pushUpdate('${esc(d.id)}')">推送更新</button>
-        <button class="btn sm ${banned ? 'primary' : 'danger'}" onclick="toggleDev('${esc(d.id)}','${d.status==='active'?'suspended':'active'}')">${banned ? '解封' : '封禁'}</button>
-        <button class="btn sm danger" onclick="delDevice('${esc(d.id)}','${esc(d.alias||d.id)}')">删除</button>
-      </div></td>
+        <button class="btn sm" onclick="toggleDev('${esc(d.id)}','${d.status==='active'?'suspended':'active'}')">${d.status==='active'?'封禁':'解封'}</button>
+        </div>
+      </td>
     </tr>`;
   }).join('');
-  $('devBox').innerHTML = `<table>
-    <thead><tr><th>设备</th><th>状态</th><th>待回</th><th>位置</th><th>在干什么</th><th>今日</th><th>累计</th><th>最后心跳</th><th></th></tr></thead>
-    <tbody>${rows}</tbody></table>`;
+  $('devBox').innerHTML = `<div style="overflow-x:auto"><table>
+    <thead><tr><th>设备</th><th>状态</th><th>待回</th><th>位置</th><th>在干什么</th><th>今日</th><th>累计</th><th>最后同步</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
 }
 
 async function showLogs(id){
@@ -510,118 +483,119 @@ async function pushUpdate(id){
   }catch(e){ toast('推送失败：' + e.message); }
 }
 
-/**
- * 封禁 / 解封。
- *
- * 以前只改 status。App 收到 suspended 时确实会把自己关掉，但那是「一次性的」——
- * 设备本地再把开关点回「自动」，封禁就形同虚设；设备离线收不到心跳时也看不出来。
- * 所以现在同时下发 emergency_stop：那个是每次动作前都会检查的硬闸，
- * 心跳每 2 分钟重下一次，本地改不掉，重装也照样被挡。
- */
-async function toggleDev(id, status){
-  const ban = status !== 'active';
+async function toggleDev(id, status){  if(!confirm(status==='suspended' ? '停用这台设备？它会静默停止工作。' : '恢复这台设备？')) return;
+  try{
+    await api('dm_devices?id=eq.' + encodeURIComponent(id), {
+      method:'PATCH',
+      headers:{'Prefer':'return=minimal'},
+      body: JSON.stringify({status, ban_reason: status==='active' ? '' : 'manual'})
+    });
+    toast('已更新');
+    loadDevices();
+  }catch(e){ toast('操作失败：' + e.message); }
+}
+
+/* 只重拉这一台设备并重渲染，不整页刷新 */
+async function refreshDevice(id){
+  if(!TOKEN){ toast('先登录'); return; }
+  try{
+    const rows = await api('dm_devices?select=*&id=eq.' + encodeURIComponent(id));
+    const row = rows && rows[0];
+    if(row){
+      const i = devices.findIndex(x => x.id === id);
+      if(i >= 0) devices[i] = Object.assign({}, devices[i], row);
+      else devices.unshift(row);
+      renderStats(); renderDevices(); renderModels();
+      $('lastSync').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN');
+      toast('已刷新 ' + (row.alias || id));
+    }else{
+      toast('这台设备不在了');
+    }
+  }catch(e){ toast('刷新失败：' + e.message); }
+}
+
+/* 服务期：写 dm_devices.license_end（UTC ISO）；列不存在时把后端原话弹出来 */
+async function editLicense(id){
+  if(!TOKEN){ toast('先登录'); return; }
   const d = devices.find(x => x.id === id) || {};
-  const last = fmtIdle(d);
-  if(ban){
-    if(!confirm('封禁「' + (d.alias || id) + '」？\n\n它会停止回消息，并且此后一直保持停止。\n最后一次心跳：' + last + '\n\n生效时间取决于设备下一次心跳，最多 2 分钟。')) return;
-  }else{
-    if(!confirm('解封「' + (d.alias || id) + '」？\n\n会同时解除急停，设备下一次心跳后恢复工作。')) return;
+  const cur = d.license_end ? String(d.license_end).slice(0, 10) : '';
+  const v = prompt('服务期到期时间（yyyy-MM-dd，留空＝不限期）\n当前：' + (cur || '未设置'), cur);
+  if(v === null) return;
+  const s = v.trim();
+  let iso = null;
+  if(s){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(s)){ toast('日期格式要是 yyyy-MM-dd'); return; }
+    const day = new Date(s + 'T00:00:00Z');
+    if(isNaN(day.getTime()) || day.toISOString().slice(0, 10) !== s){ toast('日期不存在：' + s); return; }
+    iso = new Date(day.getTime() + 86399000).toISOString(); // 当天 23:59:59 UTC
   }
   try{
     await api('dm_devices?id=eq.' + encodeURIComponent(id), {
       method:'PATCH',
       headers:{'Prefer':'return=minimal'},
-      body: JSON.stringify({
-        status: status,
-        ban_reason: ban ? 'manual' : '',
-        emergency_stop: ban
-      })
+      body: JSON.stringify({ license_end: iso })
     });
-    toast(ban ? '已封禁，等设备心跳后生效（≤2 分钟）' : '已解封');
-    loadDevices();
-  }catch(e){ toast('操作失败：' + e.message); }
+    toast(iso ? '服务期已改到 ' + s : '已清空服务期');
+    refreshDevice(id);
+  }catch(e){
+    alert('服务期保存失败：' + e.message + '\n\n（dm_devices 里可能还没有 license_end 列，需要先在库里加列）');
+  }
 }
 
-/**
- * 删除设备记录。
- * 只删 dm_devices 这一行，动作流水（dm_logs）保留 —— 删掉日志就查不了历史了。
- * 提醒：只要那台手机还在跑、云服务还开着，它下一次心跳会自动把记录建回来。
- */
-async function delDevice(id, name){
-  if(!confirm('删除设备「' + name + '」？\n\n· 会从后台移除这条记录\n· 历史流水会保留\n· 如果那台手机还在跑，下次心跳它会自己回来（想彻底断掉，先点「关云服务」）')) return;
-  if(!confirm('再确认一次：真的要删除 ' + id + ' 吗？')) return;
+/* 推荐密钥：dm_settings.key = 'recommend_keys'，值是 JSON 字符串数组 */
+async function loadRecommendKeys(){
+  const ta = $('keysText'), hint = $('keysHint');
+  ta.value = '[]';
+  hint.textContent = '';
+  if(!TOKEN){ hint.textContent = '先登录才能读取，当前显示空数组模板。'; return; }
   try{
-    await api('dm_devices?id=eq.' + encodeURIComponent(id), {
-      method:'DELETE', headers:{'Prefer':'return=minimal'}
-    });
-    toast('已删除');
-    if(filterMode !== 'all') filterMode = 'all';
-    loadDevices();
-  }catch(e){ toast('删除失败：' + e.message); }
+    const rows = await api('dm_settings?key=eq.recommend_keys&select=value');
+    const raw = rows && rows[0] ? rows[0].value : null;
+    if(raw == null){ hint.textContent = '库里还没有 recommend_keys 这一行，保存时会新建。'; return; }
+    const val = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    ta.value = JSON.stringify(Array.isArray(val) ? val : [], null, 2);
+  }catch(e){
+    ta.value = '[]';
+    hint.textContent = '读取失败：' + (e.message || '未知错误');
+  }
 }
 
-/* ---------------- 数据维护：动作流水的自动清理策略 ---------------- */
-const MAINT_KEY = 'maintenance';
-const setMaintHint = t => { const el = $('maintHint'); if(el) el.textContent = t; };
-
-async function loadMaint(){
-  if(!TOKEN) return;
-  $('maintPanel').style.display = 'block';
+async function saveRecommendKeys(){
+  if(!TOKEN){ toast('先登录'); return; }
+  let arr;
   try{
-    const rows = await api('dm_settings?key=eq.' + MAINT_KEY + '&select=value');
-    let days = 30;
-    if(rows && rows.length){
-      try{
-        const o = JSON.parse((rows[0] || {}).value || '{}');
-        if(o && o.log_retention_days) days = Number(o.log_retention_days) || 30;
-      }catch(e){}
+    arr = JSON.parse($('keysText').value);
+    if(!Array.isArray(arr)) throw new Error('最外层必须是数组');
+    arr = arr.map(x => ({
+      name: String((x && x.name) || ''),
+      url:  String((x && x.url)  || ''),
+      tag:  String((x && x.tag)  || ''),
+      desc: String((x && x.desc) || '')
+    }));
+  }catch(e){
+    $('keysHint').textContent = 'JSON 格式不对：' + e.message;
+    return;
+  }
+  try{
+    const rows = await api('dm_settings?key=eq.recommend_keys', {
+      method:'PATCH',
+      headers:{'Prefer':'return=representation'},
+      body: JSON.stringify({ value: JSON.stringify(arr) })
+    });
+    if(!rows || !rows.length){
+      await api('dm_settings', {
+        method:'POST',
+        headers:{'Prefer':'return=minimal'},
+        body: JSON.stringify({ key:'recommend_keys', value: JSON.stringify(arr) })
+      });
     }
-    $('mDays').value = days;
-  }catch(e){ setMaintHint('读设置失败：' + e.message); }
-
-  try{
-    const r = await fetch(SUPA + '/rest/v1/dm_logs?select=id', {
-      method: 'HEAD',
-      headers: { 'apikey': ANON, 'Authorization': 'Bearer ' + TOKEN, 'Prefer': 'count=exact' }
-    });
-    const cr = r.headers.get('content-range') || '';
-    $('mLogCnt').textContent = cr.indexOf('/') > -1 ? cr.split('/')[1] : '—';
-  }catch(e){ $('mLogCnt').textContent = '—'; }
-
-  try{
-    const rows = await api('dm_logs?select=ts&order=ts.asc&limit=1');
-    $('mLogOld').textContent = (rows && rows.length && rows[0].ts) ? new Date(rows[0].ts).toLocaleString('zh-CN') : '—';
-  }catch(e){ $('mLogOld').textContent = '—'; }
-}
-
-async function saveMaintDays(){
-  const d = Math.max(1, Math.min(3650, parseInt($('mDays').value || '30', 10) || 30));
-  $('mDays').value = d;
-  try{
-    await api('dm_settings', {
-      method: 'POST',
-      headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({
-        key: MAINT_KEY,
-        value: JSON.stringify({ log_retention_days: d, log_keep_per_device: 3000 }),
-        updated_at: new Date().toISOString()
-      })
-    });
-    setMaintHint('已保存：保留 ' + d + ' 天，云端每天自动清理一次。');
-    toast('已保存');
-  }catch(e){ setMaintHint('保存失败：' + e.message); }
-}
-
-async function runPrune(){
-  const d = Math.max(1, Math.min(3650, parseInt($('mDays').value || '30', 10) || 30));
-  setMaintHint('清理中…');
-  try{
-    const r = await api('rpc/dm_logs_prune', { method: 'POST', body: JSON.stringify({ p_days: d }) });
-    const o = (Array.isArray(r) ? r[0] : r) || {};
-    const del = (Number(o.deleted_by_age) || 0) + (Number(o.deleted_by_cap) || 0);
-    setMaintHint('清理完成：删除 ' + del + ' 条，剩余 ' + (o.remaining ?? '—') + ' 条。');
-    loadMaint();
-  }catch(e){ setMaintHint('清理失败：' + e.message); }
+    $('keysText').value = JSON.stringify(arr, null, 2);
+    $('keysHint').textContent = '已保存 ' + arr.length + ' 条 · ' + new Date().toLocaleTimeString('zh-CN');
+    toast('推荐密钥已保存');
+  }catch(e){
+    $('keysHint').textContent = '保存失败：' + (e.message || '未知错误');
+    toast('保存失败：' + (e.message || '未知错误'));
+  }
 }
 
 $('btnCfg').textContent = '退出登录';
@@ -629,26 +603,23 @@ $('btnCfg').onclick = () => {
   sessionStorage.removeItem(LS_TOKEN);
   location.reload();
 };
-/* 统计卡兼筛选器：点一下只看这一类，再点一下回到全部 */
-document.querySelectorAll('#statCards .stat[data-f]').forEach(function(el){
-  el.onclick = function(){
-    filterMode = (filterMode === el.dataset.f) ? 'all' : el.dataset.f;
-    renderStats();
-    renderDevices();
-  };
-});
-
 $('btnSave').onclick = login;
-$('btnReload').onclick = () => { loadDevices(); loadMaint(); };
-$('btnMaintSave').onclick = saveMaintDays;
-$('btnMaintRun').onclick = runPrune;
+$('btnReload').onclick = loadDevices;
 $('btnCloseLog').onclick = () => $('logPanel').style.display = 'none';
 $('btnLogRefresh').onclick = () => showLogs($('logDev').textContent);
+$('btnKeys').onclick = () => {
+  const p = $('keysPanel');
+  const show = p.style.display !== 'block';
+  p.style.display = show ? 'block' : 'none';
+  if(show) loadRecommendKeys();
+};
+$('btnKeysClose').onclick = () => $('keysPanel').style.display = 'none';
+$('btnKeysSave').onclick = saveRecommendKeys;
 
 loadCfg();
-if(TOKEN){ loadDevices(); loadMaint(); }
+if(TOKEN) loadDevices();
 setInterval(() => { if(TOKEN) loadDevices(); }, 60000);
-// 每 20 秒重算一次「几分钟前 / 在用还是待机」，不用等下一次拉数据
+// 每 20 秒重算一次「几分钟前 / 四态」，不用等下一次拉数据
 setInterval(() => { if(devices.length){ renderStats(); renderDevices(); renderModels(); } }, 20000);
 </script>
 </body>
