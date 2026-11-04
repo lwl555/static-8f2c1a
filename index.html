@@ -56,6 +56,47 @@
     outline:none;resize:vertical;background:#fff}
   .setup textarea:focus{border-color:var(--ink)}
   .hint{font-size:12px;color:var(--sub);line-height:1.7}
+  /* 服务期弹层 / 字段说明表 / 报错块：沿用上面的排版变量，不引入任何依赖 */
+  .mask{position:fixed;inset:0;background:rgba(17,20,24,.45);display:none;align-items:center;
+    justify-content:center;padding:20px;z-index:80}
+  .mask.show{display:flex}
+  .modal{background:#fff;border-radius:8px;width:100%;max-width:560px;max-height:90vh;overflow:auto;
+    box-shadow:0 16px 48px rgba(17,20,24,.22)}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:14px 18px;border-bottom:1px solid var(--line)}
+  .modal-head h2{font-size:15px;font-weight:600;margin:0}
+  .modal-body{padding:16px 18px;display:grid;gap:12px}
+  .modal-foot{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px;
+    padding:12px 18px;border-top:1px solid var(--line);background:#fcfdfd}
+  .field{display:grid;gap:6px}
+  .field .lab{font-size:12px;color:var(--sub)}
+  .field input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:5px;
+    font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:14px;letter-spacing:.04em;
+    outline:none;background:#fff;color:var(--ink)}
+  .field input:focus{border-color:var(--ink)}
+  .note{background:#fafbfb;border:1px solid var(--line);border-radius:5px;padding:10px 12px;
+    font-size:12.5px;color:var(--mid);line-height:1.8}
+  .note>div+div{margin-top:3px}
+  .note b{color:var(--ink);font-weight:600}
+  .errbox{display:none;background:var(--red-2);border:1px solid #efd2cb;border-radius:5px;
+    padding:10px 12px;font-size:12.5px;color:var(--red);line-height:1.7}
+  .errbox.show{display:block}
+  .errbox .raw{display:none;margin-top:6px;padding:8px 10px;background:#fff;border:1px solid #f0d6d0;
+    border-radius:4px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px;
+    color:#7d2d21;white-space:pre-wrap;word-break:break-all;max-height:140px;overflow:auto}
+  .errbox ul{display:none;margin:8px 0 0;padding-left:18px;color:var(--mid);font-size:12px}
+  .errbox li{margin:2px 0}
+  .errbox li.hit{color:var(--red);font-weight:600}
+  .specwrap{overflow-x:auto}
+  table.spec{min-width:560px;border:1px solid var(--line)}
+  table.spec th,table.spec td{padding:7px 10px;font-size:12px}
+  table.spec th{text-transform:none;letter-spacing:0;white-space:nowrap}
+  table.spec td{vertical-align:top}
+  .ex{border:1px solid var(--line);border-radius:5px;overflow:hidden}
+  .ex-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;
+    background:#fafbfb;border-bottom:1px solid var(--line);font-size:12px;color:var(--sub)}
+  .ex pre{margin:0;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+    font-size:11.5px;line-height:1.65;color:var(--mid);background:#fff;overflow:auto;max-height:220px}
   .logs{background:#fafbfb;padding:0}
   .logrow{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:10px 18px;border-bottom:1px solid #f0f2f3;font-size:12.5px}
   .logrow:last-child{border-bottom:none}
@@ -94,6 +135,14 @@
   td{white-space:normal!important}
   td[data-label="操作"]{white-space:normal!important}
   td .mono{white-space:normal;word-break:break-all}
+  table.spec{display:table;min-width:520px}
+  table.spec thead{display:table-header-group}
+  table.spec tbody{display:table-row-group}
+  table.spec tr{display:table-row;border:none;border-radius:0;margin:0;padding:0;background:none}
+  table.spec th{display:table-cell;white-space:nowrap}
+  table.spec td{display:table-cell;text-align:left;border-bottom:1px solid #f0f2f3;padding:7px 10px}
+  table.spec td::before{display:none}
+  .modal-foot .btn{flex:1 1 auto}
 }
 </style>
 </head>
@@ -141,8 +190,88 @@
         对应 <span class="mono">dm_settings</span> 里 key=<span class="mono">recommend_keys</span> 的 JSON 数组，
         每项 <span class="mono">{name, url, tag, desc}</span>。App 的「推荐密钥」列表读的就是这里；读不到时按空数组模板 <span class="mono">[]</span> 显示。
       </div>
+      <div class="specwrap">
+        <table class="spec">
+          <thead><tr><th>字段</th><th>必填</th><th>说明</th><th>示例</th></tr></thead>
+          <tbody>
+            <tr><td><span class="mono">name</span></td><td>必填</td><td>平台名，App 列表里显示的大标题</td><td>DeepSeek 开放平台</td></tr>
+            <tr><td><span class="mono">url</span></td><td>必填</td><td>必须是 <span class="mono">https://</span> 开头的完整地址，App 里点「去申请」直接打开它</td><td class="mono">https://platform.deepseek.com/api_keys</td></tr>
+            <tr><td><span class="mono">tag</span></td><td>选填</td><td>角标，建议只用这三个：推荐 / 免费额度 / 稳定</td><td>推荐</td></tr>
+            <tr><td><span class="mono">desc</span></td><td>选填</td><td>一句说明，说明这个平台适合干什么</td><td>主模型 key，注册送额度</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="hint">
+        <b>显示顺序：</b>数组第 1 条排最前；<b>App 端默认只显示前 3 条，其余在「展开更多」里。</b>
+      </div>
+      <div class="ex">
+        <div class="ex-head">
+          <span>可直接用的示例（3 条）</span>
+          <button class="btn sm" id="btnKeysDemo" type="button">填入示例</button>
+        </div>
+        <pre id="keysDemo"></pre>
+      </div>
+      <label class="hint" for="keysText">JSON 数组。保存前会先校验：能解析、必须是数组、每条 name / url 都不为空、url 以 https:// 开头；不合法只在下方提示，不会提交。</label>
       <textarea id="keysText" spellcheck="false" placeholder='[{"name":"DeepSeek 开放平台","url":"https://platform.deepseek.com/api_keys","tag":"推荐","desc":"主模型 key"}]'></textarea>
       <div class="hint" id="keysHint"></div>
+    </div>
+  </div>
+
+  <div class="mask" id="licMask">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="licTitle">
+      <div class="modal-head">
+        <h2 id="licTitle">设置免费服务到期时间</h2>
+        <button class="btn sm" id="licClose" type="button">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div class="hint">设备：<b id="licDev">—</b> <span class="mono" id="licDevId"></span></div>
+        <div class="note">
+          <div><b>格式：</b><span class="mono">YYYY-MM-DD</span>（如 <span class="mono">2026-12-31</span>），写入 <span class="mono">dm_devices.free_until</span>，按当天 <b>23:59:59 UTC</b> 到期。</div>
+          <div><b>留空 ≠ 不限期：</b>要永久免费请点下方「不限期」按钮，不要留空提交。</div>
+          <div><b>示例：</b>填 <span class="mono">2026-12-31</span> → 这台设备可用到 2026-12-31 23:59:59 UTC。</div>
+          <div><b>到期后 App 显示：</b>「免费服务已到期，部分功能受限」。</div>
+        </div>
+        <div class="field">
+          <label class="lab" for="licDate">到期日期（只填日期，不要带时间）</label>
+          <input id="licDate" type="text" inputmode="numeric" autocomplete="off" spellcheck="false"
+                 maxlength="10" placeholder="2026-12-31">
+          <div class="hint" id="licNow"></div>
+        </div>
+        <div class="errbox" id="licErr">
+          <b id="licErrTitle">保存失败</b>
+          <span class="raw" id="licRaw"></span>
+          <ul id="licCauses">
+            <li data-code="PGRST204"><b>列不存在（PGRST204）</b>：<span class="mono">dm_devices</span> 表还没有 <span class="mono">free_until</span> 列，先在数据库里加这一列再保存。</li>
+            <li data-code="42501,401"><b>没有权限（42501 / 401）</b>：登录会话过期，或这张表的 RLS 策略不允许改 <span class="mono">free_until</span>。刷新页面重新登录再试。</li>
+            <li data-code="22007"><b>日期非法（22007）</b>：日期不是合法的 <span class="mono">YYYY-MM-DD</span>，或这一天不存在（如 2 月 30 日）。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn sm" id="licClear" type="button" style="margin-right:auto">不限期（清除到期时间）</button>
+        <button class="btn sm" id="licCancel" type="button">取消</button>
+        <button class="btn primary" id="licSave" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mask" id="runlogMask">
+    <div class="modal" role="dialog" aria-modal="true" style="max-width:860px">
+      <div class="modal-head">
+        <h2>运行日志 <span class="mono" id="runlogDev"></span></h2>
+        <button class="btn sm" id="runlogClose" type="button">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div class="hint" id="runlogMeta">读取中…</div>
+        <pre id="runlogPre" style="margin:0;padding:12px;background:#fafbfb;border:1px solid var(--line);border-radius:5px;
+          font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.65;color:var(--mid);
+          white-space:pre-wrap;word-break:break-all;max-height:56vh;overflow:auto"></pre>
+      </div>
+      <div class="modal-foot">
+        <button class="btn sm" id="runlogCopy" type="button">复制全文</button>
+        <button class="btn sm" id="runlogDl" type="button">下载 .txt</button>
+        <button class="btn sm" id="runlogRefresh" type="button">刷新</button>
+      </div>
     </div>
   </div>
 
@@ -176,6 +305,8 @@
   <div class="panel" id="logPanel" style="display:none">
     <div class="panel-head"><h2>动作流水 <span class="mono" id="logDev"></span></h2>
       <div style="display:flex;gap:6px">
+        <button class="btn sm" id="btnCopyFlow">复制</button>
+        <button class="btn sm" id="btnDlFlow">下载</button>
         <button class="btn sm" id="btnLogRefresh">刷新</button>
         <button class="btn sm" id="btnCloseLog">收起</button>
       </div></div>
@@ -201,6 +332,7 @@ const SUPA = 'https://console-8f2c1a.pages.dev/api/supa';
 const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbnNzeWlxaXR1Z3FmbWNiZGhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MDEyNzUsImV4cCI6MjA5ODk3NzI3NX0.9EfbEr7BQhZtbOwHJ3IrkOy16kcaxlmzuJuV0A2Z8Eg';
 const LS_TOKEN = 'dm_admin_token';
 let TOKEN = '', devices = [];
+let lastFlowText = '';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -348,6 +480,15 @@ function statusFlag(d){
   return '';
 }
 
+/* SDK 整数 → 安卓版本号。管理台给普通人看，写「安卓 14」比「SDK 34」明白 */
+function androidVer(sdk){
+  const m = {19:'4.4',20:'4.4W',21:'5.0',22:'5.1',23:'6.0',24:'7.0',25:'7.1',
+             26:'8.0',27:'8.1',28:'9',29:'10',30:'11',31:'12',32:'12L',
+             33:'13',34:'14',35:'15',36:'16'};
+  if(!sdk) return '';
+  return m[sdk] ? ('安卓 ' + m[sdk]) : ('SDK ' + sdk);
+}
+
 function renderModels(){
   const box = $('modelsBox'); if(!box) return;
   if(!devices.length){ box.innerHTML = '<div class="empty">还没有设备</div>'; return; }
@@ -360,7 +501,7 @@ function renderModels(){
   }
   box.innerHTML = Array.from(m.entries()).sort((a,b)=>b[1].n-a[1].n).map(([k,v]) =>
     '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f2f3">' +
-    '<span>' + esc(k) + ' <span class="hint">安卓 ' + (v.sdk||'?') + '</span></span><b>' + v.n + ' 台</b></div>').join('');
+    '<span>' + esc(k) + ' <span class="hint">' + esc(androidVer(v.sdk) || '系统未知') + '</span></span><b>' + v.n + ' 台</b></div>').join('');
 }
 
 function renderDevices(){
@@ -382,7 +523,9 @@ function renderDevices(){
       : '—';
     return `<tr>
       <td data-label="设备"><b>${esc(d.alias || '未命名')}</b>
-        <div class="mono">${esc(d.id||'')} · v${esc((d.app_version||'?').replace(/^v/,''))}${d.latest_version ? ' → ' + esc(d.latest_version) : ''}</div></td>
+        <div class="mono">${esc(d.id||'')} · v${esc((d.app_version||'?').replace(/^v/,''))}${d.latest_version ? ' → ' + esc(d.latest_version) : ''}</div>
+        <div class="hint">${esc(((d.brand||'') + ' ' + (d.model||'')).trim() || '机型未知')}${d.sdk ? ' · ' + esc(androidVer(d.sdk)) : ''}${d.rom ? ' · ' + esc(d.rom) : ''}</div>
+        ${(d.full_scan_on || d.position_mem_on || d.return_top_on) ? '<div class="hint">遍历: ' + [d.full_scan_on?'全量':'', d.position_mem_on?'记忆':'', d.return_top_on?'回顶':''].filter(Boolean).join('+') + '</div>' : ''}</td>
       <td data-label="状态">
         <span class="badge ${cls}" style="cursor:pointer" title="点击重新拉取这台设备" onclick="refreshDevice('${esc(d.id)}')">${label}</span>
         <div class="mono">${flag ? '<span class="badge bad" style="margin-right:6px">' + esc(flag) + '</span>' : ''}${diag ? '<span style="color:var(--amber)">' + esc(diag) + '</span> · ' : ''}偏移 ${dist} / 限 ${d.allowed_radius_m||'—'} m</div></td>
@@ -396,8 +539,9 @@ function renderDevices(){
       <td data-label="操作" style="vertical-align:top">
         <div style="display:flex;flex-wrap:wrap;gap:6px">
         <button class="btn sm" onclick="refreshDevice('${esc(d.id)}')">刷新</button>
-        <button class="btn sm" onclick="editLicense('${esc(d.id)}')">服务期</button>
+        <button class="btn sm" onclick="openLicense('${esc(d.id)}')">服务期</button>
         <button class="btn sm" onclick="showLogs('${esc(d.id)}')">流水</button>
+        <button class="btn sm" onclick="showRunlog('${esc(d.id)}')">日志</button>
         <button class="btn sm" onclick="toggleService('${esc(d.id)}', ${d.service_on ? 'false' : 'true'})">${d.service_on ? '关云服务' : '开通云服务'}</button>
         <button class="btn sm" onclick="toggleStop('${esc(d.id)}', ${d.emergency_stop ? 'false' : 'true'})">${d.emergency_stop ? '恢复' : '急停'}</button>
         <button class="btn sm" onclick="togglePause('${esc(d.id)}', ${d.ai_paused ? 'false' : 'true'})">${d.ai_paused ? '恢复AI' : '暂停AI'}</button>
@@ -418,19 +562,87 @@ async function showLogs(id){
   $('logBox').innerHTML = '<div class="empty">读取中…</div>';
   try{
     const rows = await api(`dm_logs?select=*&device_id=eq.${encodeURIComponent(id)}&order=ts.desc&limit=60`);
-    if(!rows || !rows.length){ $('logBox').innerHTML = '<div class="empty">暂无记录</div>'; return; }
+    if(!rows || !rows.length){ $('logBox').innerHTML = '<div class="empty">暂无记录</div>'; lastFlowText = ''; return; }
+    const kindMap = {reply:'已回复', skip:'跳过', error:'异常', guard:'校验'};
+    lastFlowText = rows.slice().reverse().map(r => {
+      const t = new Date(r.ts).toLocaleString('zh-CN');
+      const kind = kindMap[r.kind] || r.kind;
+      if(r.kind === 'reply') return `${t}\t${kind}\t${r.nick}：${r.in_text} -> ${r.out_text}`;
+      return `${t}\t${kind}\t${r.nick || '—'}：${r.in_text || ''}（${r.reason || ''}）`;
+    }).join('\n');
     $('logBox').innerHTML = rows.map(r => {
       const t = new Date(r.ts).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-      const kindMap = {reply:'已回复', skip:'跳过', error:'异常', guard:'校验'};
+      const kindMap2 = {reply:'已回复', skip:'跳过', error:'异常', guard:'校验'};
       let body = '';
       if(r.kind === 'reply') body = `<b>${esc(r.nick)}</b>：${esc(r.in_text)} <span style="color:#c9ced3">→</span> ${esc(r.out_text)}`;
       else body = `<b>${esc(r.nick||'—')}</b>：${esc(r.in_text||'')} <span class="reason">${esc(r.reason||'')}</span>`;
-      return `<div class="logrow"><div class="t">${t}</div><div class="c"><span class="badge ${r.kind==='reply'?'ok':'off'}" style="margin-right:8px">${kindMap[r.kind]||r.kind}</span>${body}</div></div>`;
+      return `<div class="logrow"><div class="t">${t}</div><div class="c"><span class="badge ${r.kind==='reply'?'ok':'off'}" style="margin-right:8px">${kindMap2[r.kind]||r.kind}</span>${body}</div></div>`;
     }).join('');
   }catch(e){
     $('logBox').innerHTML = '<div class="empty">读不到日志：' + esc(e.message) +
       '<br><br>日志表只允许写入，读取需要 service_role 密钥。点右上「连接设置」换一下。</div>';
+    lastFlowText = '';
   }
+}
+
+/* ---- 复制 / 下载 小工具 ---- */
+function copyText(text, okMsg){
+  if(!text){ toast('没有可复制的內容'); return; }
+  const done = () => toast(okMsg || '已复制到剪贴板');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+  }else{
+    fallbackCopy(text, done);
+  }
+}
+function fallbackCopy(text, done){
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); done(); }catch(e){ toast('复制失败，请全选后手动复制'); }
+  document.body.removeChild(ta);
+}
+function downloadText(filename, text){
+  if(!text){ toast('没有可下载的內容'); return; }
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+/* ---- 运行日志（App 端心跳后上传的 RunLog 全文，一台一行，覆盖式）---- */
+let RUNLOG_ID = '', lastRunlogText = '';
+
+async function showRunlog(id){
+  if(!TOKEN){ toast('先登录'); return; }
+  RUNLOG_ID = id;
+  $('runlogMask').classList.add('show');
+  $('runlogDev').textContent = id;
+  $('runlogMeta').textContent = '读取中…';
+  $('runlogPre').textContent = '';
+  lastRunlogText = '';
+  try{
+    const rows = await api('dm_run_logs?select=*&device_id=eq.' + encodeURIComponent(id));
+    const row = rows && rows[0];
+    if(!row || !row.content){
+      $('runlogMeta').textContent = '这台设备还没有上传过运行日志。需要 App 升级到 v0.9.8+ 且库里的 v098_backend.sql 已执行。';
+      return;
+    }
+    lastRunlogText = row.content;
+    const t = new Date(row.updated_at);
+    $('runlogMeta').textContent = '上次更新：' + (isNaN(t.getTime()) ? row.updated_at : t.toLocaleString('zh-CN')) +
+      ' · 共 ' + row.content.length + ' 字。心跳每 2 分钟一次，日志内容有变化才会重新上传。';
+    $('runlogPre').textContent = row.content;
+  }catch(e){
+    $('runlogMeta').textContent = '读取失败：' + (e.message || '未知错误') +
+      '（若是 404 / PGRST205，说明 dm_run_logs 表还没建，先执行 v098_backend.sql）';
+  }
+}
+function closeRunlog(){
+  $('runlogMask').classList.remove('show');
+  RUNLOG_ID = ''; lastRunlogText = '';
 }
 
 async function toggleService(id, on){
@@ -514,86 +726,226 @@ async function refreshDevice(id){
   }catch(e){ toast('刷新失败：' + e.message); }
 }
 
-/* 服务期：写 dm_devices.license_end（UTC ISO）；列不存在时把后端原话弹出来 */
-async function editLicense(id){
+/* == 校验函数开始：纯函数，不碰 DOM，可整段抽出去跑用例 == */
+
+/* 服务期日期：输入框字符串 -> {ok, date, iso} 或 {ok:false, msg}
+   iso 是当天 23:59:59 UTC；空串单独标记 empty，由界面提示改用「不限期」。 */
+function checkLicenseDate(input){
+  const s = String(input == null ? '' : input).trim();
+  if(!s) return { ok:false, empty:true, msg:'日期不能为空：要永久免费请点「不限期」按钮，不要留空保存。' };
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(s))
+    return { ok:false, msg:'格式必须是 YYYY-MM-DD（四位年-两位月-两位日），例如 2026-12-31。' };
+  const day = new Date(s + 'T00:00:00Z');
+  if(isNaN(day.getTime()) || day.toISOString().slice(0, 10) !== s)
+    return { ok:false, msg:'日期不存在：' + s + '，请检查月份和天数。' };
+  return { ok:true, date:s, iso:new Date(day.getTime() + 86399000).toISOString() };
+}
+
+/* 推荐密钥：textarea 文本 -> {ok, arr} 或 {ok:false, msg}
+   依次校验：JSON 可解析 -> 是数组 -> 每项是对象 -> name/url 非空 -> url 以 https:// 开头。 */
+function checkRecommendKeys(text){
+  let arr;
+  try{
+    arr = JSON.parse(String(text == null ? '' : text));
+  }catch(e){
+    return { ok:false, msg:'JSON 解析失败：' + e.message + '（常见原因：少了逗号、用了中文引号、最后一项多了逗号）' };
+  }
+  if(!Array.isArray(arr))
+    return { ok:false, msg:'最外层必须是数组 [...]，当前是 ' + (arr === null ? 'null' : typeof arr) + '。' };
+  const out = [];
+  for(let i = 0; i < arr.length; i++){
+    const it = arr[i], at = '第 ' + (i + 1) + ' 条';
+    if(!it || typeof it !== 'object' || Array.isArray(it))
+      return { ok:false, msg:at + '不是对象，应该写成 {"name":"…","url":"…"}。' };
+    const name = String(it.name == null ? '' : it.name).trim();
+    const url  = String(it.url  == null ? '' : it.url ).trim();
+    if(!name) return { ok:false, msg:at + '缺 name（平台名），不能为空。' };
+    if(!url)  return { ok:false, msg:at + '（' + name + '）缺 url。' };
+    if(!/^https:\/\//i.test(url))
+      return { ok:false, msg:at + '（' + name + '）的 url 必须以 https:// 开头，当前是「' + url + '」。' };
+    out.push({
+      name: name,
+      url: url,
+      tag: String(it.tag == null ? '' : it.tag).trim(),
+      desc: String(it.desc == null ? '' : it.desc).trim()
+    });
+  }
+  return { ok:true, arr: out };
+}
+
+/* == 校验函数结束 == */
+
+/* 服务期：写 dm_devices.free_until（UTC ISO），失败时把后端原话和常见原因一起显示 */
+let LIC_ID = '';
+
+function showLicErr(msg, fromServer){
+  $('licErrTitle').textContent = fromServer ? '保存失败 · 后端原话：' : msg;
+  const raw = $('licRaw');
+  raw.style.display = fromServer ? 'block' : 'none';
+  raw.textContent = fromServer ? String(msg) : '';
+  const causes = $('licCauses');
+  causes.style.display = fromServer ? 'block' : 'none';
+  if(fromServer){
+    const s = String(msg);
+    causes.querySelectorAll('li').forEach(li => {
+      const hit = (li.getAttribute('data-code') || '').split(',').some(c => c && s.indexOf(c) >= 0);
+      li.classList.toggle('hit', hit);
+    });
+  }
+  $('licErr').classList.add('show');
+}
+function hideLicErr(){ $('licErr').classList.remove('show'); }
+
+function fmtUtc(v){
+  const t = new Date(v);
+  if(isNaN(t.getTime())) return String(v);
+  return t.toISOString().slice(0, 10) + ' ' + t.toISOString().slice(11, 19) + ' UTC';
+}
+
+function openLicense(id){
   if(!TOKEN){ toast('先登录'); return; }
   const d = devices.find(x => x.id === id) || {};
-  const cur = d.license_end ? String(d.license_end).slice(0, 10) : '';
-  const v = prompt('服务期到期时间（yyyy-MM-dd，留空＝不限期）\n当前：' + (cur || '未设置'), cur);
-  if(v === null) return;
-  const s = v.trim();
-  let iso = null;
-  if(s){
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(s)){ toast('日期格式要是 yyyy-MM-dd'); return; }
-    const day = new Date(s + 'T00:00:00Z');
-    if(isNaN(day.getTime()) || day.toISOString().slice(0, 10) !== s){ toast('日期不存在：' + s); return; }
-    iso = new Date(day.getTime() + 86399000).toISOString(); // 当天 23:59:59 UTC
-  }
+  LIC_ID = id;
+  $('licDev').textContent = d.alias || '未命名';
+  $('licDevId').textContent = id;
+  $('licDate').value = d.free_until ? String(d.free_until).slice(0, 10) : '';
+  $('licNow').textContent = d.free_until
+    ? '当前值：' + fmtUtc(d.free_until) + '（本机 ' + fmtDateTime(d.free_until) + '）'
+    : '当前：未设置（不限期）';
+  hideLicErr();
+  $('licMask').classList.add('show');
+  setTimeout(() => $('licDate').focus(), 30);
+}
+
+function closeLicense(){
+  $('licMask').classList.remove('show');
+  LIC_ID = '';
+}
+
+function setLicBusy(on){
+  $('licSave').disabled = !!on;
+  $('licClear').disabled = !!on;
+  $('licSave').textContent = on ? '保存中…' : '保存';
+}
+
+async function saveLicense(){
+  if(!TOKEN){ toast('先登录'); return; }
+  if(!LIC_ID){ toast('先选一台设备'); return; }
+  const r = checkLicenseDate($('licDate').value);
+  if(!r.ok){ showLicErr(r.msg); $('licDate').focus(); return; }
+  hideLicErr();
+  setLicBusy(true);
   try{
-    await api('dm_devices?id=eq.' + encodeURIComponent(id), {
+    await api('dm_devices?id=eq.' + encodeURIComponent(LIC_ID), {
       method:'PATCH',
       headers:{'Prefer':'return=minimal'},
-      body: JSON.stringify({ license_end: iso })
+      body: JSON.stringify({ free_until: r.iso })
     });
-    toast(iso ? '服务期已改到 ' + s : '已清空服务期');
+    toast('服务期已设到 ' + r.date + ' 23:59:59 UTC');
+    const id = LIC_ID;
+    closeLicense();
     refreshDevice(id);
   }catch(e){
-    alert('服务期保存失败：' + e.message + '\n\n（dm_devices 里可能还没有 license_end 列，需要先在库里加列）');
+    showLicErr(e.message || '未知错误', true);
+  }finally{
+    setLicBusy(false);
+  }
+}
+
+async function clearLicense(){
+  if(!TOKEN){ toast('先登录'); return; }
+  if(!LIC_ID) return;
+  if(!confirm('把「' + ($('licDev').textContent || '这台设备') + '」的免费服务改成不限期？')) return;
+  hideLicErr();
+  setLicBusy(true);
+  try{
+    await api('dm_devices?id=eq.' + encodeURIComponent(LIC_ID), {
+      method:'PATCH',
+      headers:{'Prefer':'return=minimal'},
+      body: JSON.stringify({ free_until: null })
+    });
+    toast('已改为不限期');
+    const id = LIC_ID;
+    closeLicense();
+    refreshDevice(id);
+  }catch(e){
+    showLicErr(e.message || '未知错误', true);
+  }finally{
+    setLicBusy(false);
   }
 }
 
 /* 推荐密钥：dm_settings.key = 'recommend_keys'，值是 JSON 字符串数组 */
+const KEYS_DEMO = `[
+  {
+    "name": "DeepSeek 开放平台",
+    "url": "https://platform.deepseek.com/api_keys",
+    "tag": "推荐",
+    "desc": "主模型 key，注册送额度"
+  },
+  {
+    "name": "硅基流动",
+    "url": "https://cloud.siliconflow.cn/account/ak",
+    "tag": "免费额度",
+    "desc": "注册送额度，可跑 Qwen / Llama 等开源模型"
+  },
+  {
+    "name": "智谱开放平台",
+    "url": "https://open.bigmodel.cn/usercenter/apikeys",
+    "tag": "稳定",
+    "desc": "GLM 系列，新号有免费额度"
+  }
+]`;
+
+function setKeysHint(msg, bad){
+  const h = $('keysHint');
+  h.textContent = msg;
+  h.style.color = bad ? 'var(--red)' : '';
+}
+
 async function loadRecommendKeys(){
-  const ta = $('keysText'), hint = $('keysHint');
+  const ta = $('keysText');
   ta.value = '[]';
-  hint.textContent = '';
-  if(!TOKEN){ hint.textContent = '先登录才能读取，当前显示空数组模板。'; return; }
+  setKeysHint('', false);
+  if(!TOKEN){ setKeysHint('先登录才能读取，当前显示空数组模板。', false); return; }
   try{
     const rows = await api('dm_settings?key=eq.recommend_keys&select=value');
     const raw = rows && rows[0] ? rows[0].value : null;
-    if(raw == null){ hint.textContent = '库里还没有 recommend_keys 这一行，保存时会新建。'; return; }
+    if(raw == null){ setKeysHint('库里还没有 recommend_keys 这一行，保存时会新建。', false); return; }
     const val = typeof raw === 'string' ? JSON.parse(raw) : raw;
     ta.value = JSON.stringify(Array.isArray(val) ? val : [], null, 2);
   }catch(e){
     ta.value = '[]';
-    hint.textContent = '读取失败：' + (e.message || '未知错误');
+    setKeysHint('读取失败：' + (e.message || '未知错误'), false);
   }
 }
 
 async function saveRecommendKeys(){
   if(!TOKEN){ toast('先登录'); return; }
-  let arr;
-  try{
-    arr = JSON.parse($('keysText').value);
-    if(!Array.isArray(arr)) throw new Error('最外层必须是数组');
-    arr = arr.map(x => ({
-      name: String((x && x.name) || ''),
-      url:  String((x && x.url)  || ''),
-      tag:  String((x && x.tag)  || ''),
-      desc: String((x && x.desc) || '')
-    }));
-  }catch(e){
-    $('keysHint').textContent = 'JSON 格式不对：' + e.message;
+  const r = checkRecommendKeys($('keysText').value);
+  if(!r.ok){
+    setKeysHint('没保存：' + r.msg, true);
+    toast('没保存：先按提示改好 JSON');
     return;
   }
   try{
     const rows = await api('dm_settings?key=eq.recommend_keys', {
       method:'PATCH',
       headers:{'Prefer':'return=representation'},
-      body: JSON.stringify({ value: JSON.stringify(arr) })
+      body: JSON.stringify({ value: JSON.stringify(r.arr) })
     });
     if(!rows || !rows.length){
       await api('dm_settings', {
         method:'POST',
         headers:{'Prefer':'return=minimal'},
-        body: JSON.stringify({ key:'recommend_keys', value: JSON.stringify(arr) })
+        body: JSON.stringify({ key:'recommend_keys', value: JSON.stringify(r.arr) })
       });
     }
-    $('keysText').value = JSON.stringify(arr, null, 2);
-    $('keysHint').textContent = '已保存 ' + arr.length + ' 条 · ' + new Date().toLocaleTimeString('zh-CN');
-    toast('推荐密钥已保存');
+    $('keysText').value = JSON.stringify(r.arr, null, 2);
+    setKeysHint('已保存 ' + r.arr.length + ' 条 · App 下次心跳后生效（约 2 分钟）', false);
+    toast('已保存，App 下次心跳后生效（约 2 分钟）');
   }catch(e){
-    $('keysHint').textContent = '保存失败：' + (e.message || '未知错误');
+    setKeysHint('保存失败：' + (e.message || '未知错误'), true);
     toast('保存失败：' + (e.message || '未知错误'));
   }
 }
@@ -607,6 +959,13 @@ $('btnSave').onclick = login;
 $('btnReload').onclick = loadDevices;
 $('btnCloseLog').onclick = () => $('logPanel').style.display = 'none';
 $('btnLogRefresh').onclick = () => showLogs($('logDev').textContent);
+$('btnCopyFlow').onclick = () => copyText(lastFlowText, '流水已复制，可直接粘贴');
+$('btnDlFlow').onclick = () => downloadText('dm_flow_' + ($('logDev').textContent || 'device') + '.txt', lastFlowText);
+$('runlogClose').onclick = closeRunlog;
+$('runlogMask').addEventListener('click', e => { if(e.target === $('runlogMask')) closeRunlog(); });
+$('runlogCopy').onclick = () => copyText(lastRunlogText, '运行日志已复制，可直接粘贴');
+$('runlogDl').onclick = () => downloadText('dm_runlog_' + (RUNLOG_ID || 'device') + '.txt', lastRunlogText);
+$('runlogRefresh').onclick = () => { if(RUNLOG_ID) showRunlog(RUNLOG_ID); };
 $('btnKeys').onclick = () => {
   const p = $('keysPanel');
   const show = p.style.display !== 'block';
@@ -615,6 +974,25 @@ $('btnKeys').onclick = () => {
 };
 $('btnKeysClose').onclick = () => $('keysPanel').style.display = 'none';
 $('btnKeysSave').onclick = saveRecommendKeys;
+$('keysDemo').textContent = KEYS_DEMO;
+$('btnKeysDemo').onclick = () => {
+  const ta = $('keysText');
+  if(ta.value.trim() && ta.value.trim() !== '[]' && !confirm('示例会覆盖编辑框里现有的内容，继续？')) return;
+  ta.value = KEYS_DEMO;
+  setKeysHint('示例已填入，确认无误后点右上「保存」；不保存不会生效。', false);
+  ta.focus();
+};
+
+$('licSave').onclick = saveLicense;
+$('licClear').onclick = clearLicense;
+$('licClose').onclick = closeLicense;
+$('licCancel').onclick = closeLicense;
+$('licMask').addEventListener('click', e => { if(e.target === $('licMask')) closeLicense(); });
+$('licDate').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); saveLicense(); } });
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && $('licMask').classList.contains('show')) closeLicense();
+  if(e.key === 'Escape' && $('runlogMask').classList.contains('show')) closeRunlog();
+});
 
 loadCfg();
 if(TOKEN) loadDevices();
